@@ -7,9 +7,9 @@ import warnings
 # Each entry specifies file path, delimiter, header row, date columns, and columns to use
 dic_files = {
     'file01': {
-        'filePath': "./database/",
+        'filePath': "./database/Original data/",
         'fileName': "IBOV.csv",
-        'saveFilePath': "./filled/",
+        'saveFilePath': "./database/filled/",
         'saveFileName': "IBOV_filled.csv",
         'delimiter': ",",
         'decimal': ".",
@@ -18,9 +18,9 @@ dic_files = {
         'cols': ["Close"]
     },
     'file02': {
-        'filePath': "./database/",
+        'filePath': "./database/Original data/",
         'fileName': "NASDAQ.csv",
-        'saveFilePath': "./filled/",
+        'saveFilePath': "./database/filled/",
         'saveFileName': "NASDAQ_filled.csv",
         'delimiter': ",",
         'decimal': ".",
@@ -29,9 +29,9 @@ dic_files = {
         'cols': ["Close"]
     },
     'file03': {
-        'filePath': "./database/",
+        'filePath': "./database/Original data/",
         'fileName': "S&P 500.csv",
-        'saveFilePath': "./filled/",
+        'saveFilePath': "./database/filled/",
         'saveFileName': "SnP500_filled.csv",
         'delimiter': ",",
         'decimal': ".",
@@ -40,9 +40,9 @@ dic_files = {
         'cols': ["Close"]
     },
     'file04': {
-        'filePath': "./database/",
+        'filePath': "./database/Original data/",
         'fileName': "SMLL.csv",
-        'saveFilePath': "./filled/",
+        'saveFilePath': "./database/filled/",
         'saveFileName': "SMLL_filled.csv",
         'delimiter': ",",
         'decimal': ".",
@@ -51,9 +51,9 @@ dic_files = {
         'cols': ["Close"]
     },
     'file05': {
-        'filePath': "./database/",
+        'filePath': "./database/Original data/",
         'fileName': "T-BOND10.csv",
-        'saveFilePath': "./filled/",
+        'saveFilePath': "./database/filled/",
         'saveFileName': "T-BOND10_filled.csv",
         'delimiter': ",",
         'decimal': ".",
@@ -62,9 +62,9 @@ dic_files = {
         'cols': ["Close"]
     },
     'file06': {
-        'filePath': "./database/",
+        'filePath': "./database/Original data/",
         'fileName': "DOLOF.csv",
-        'saveFilePath': "./filled/",
+        'saveFilePath': "./database/filled/",
         'saveFileName': "DOLARF_filled.csv",
         'delimiter': ",",
         'decimal': ".",
