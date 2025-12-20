@@ -1,0 +1,2 @@
+# MarkovSwitchingModel
+Markov Switching Model
