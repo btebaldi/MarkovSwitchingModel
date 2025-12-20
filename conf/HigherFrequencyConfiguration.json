@@ -1,0 +1,82 @@
+{
+    "file01": {
+        "filePath": "./database/filled/",
+        "fileName": "IBOV_filled.csv",
+        "saveFilePath": "./database/filled/",
+        "saveFileName": "IBOV_output.csv",
+        "delimiter": ",",
+        "decimal": ".",
+        "parse_dates": [
+            "Data"
+        ],
+        "date_format": "%Y-%m-%d",
+        "index": "Data",
+        "aggregation": {
+            "Close_filled": "last"
+        }
+    },
+    "file02": {
+        "filePath": "./database/filled/",
+        "fileName": "SMLL_filled.csv",
+        "saveFilePath": "./database/filled/",
+        "saveFileName": "SMLL_output.csv",
+        "delimiter": ",",
+        "decimal": ".",
+        "parse_dates": [
+            "Data"
+        ],
+        "date_format": "%Y-%m-%d",
+        "index": "Data",
+        "aggregation": {
+            "Close_filled": "last"
+        }
+    },
+    "file03": {
+        "filePath": "./database/filled/",
+        "fileName": "SnP500_filled.csv",
+        "saveFilePath": "./database/filled/",
+        "saveFileName": "SnP500_output.csv",
+        "delimiter": ",",
+        "decimal": ".",
+        "parse_dates": [
+            "Data"
+        ],
+        "date_format": "%Y-%m-%d",
+        "index": "Data",
+        "aggregation": {
+            "Close_filled": "last"
+        }
+    },
+    "file04": {
+        "filePath": "./database/filled/",
+        "fileName": "NASDAQ_filled.csv",
+        "saveFilePath": "./database/filled/",
+        "saveFileName": "NASDAQ_output.csv",
+        "delimiter": ",",
+        "decimal": ".",
+        "parse_dates": [
+            "Data"
+        ],
+        "date_format": "%Y-%m-%d",
+        "index": "Data",
+        "aggregation": {
+            "Close_filled": "last"
+        }
+    },
+    "file05": {
+        "filePath": "./database/filled/",
+        "fileName": "DOLARF_filled.csv",
+        "saveFilePath": "./database/filled/",
+        "saveFileName": "DOLARF_output.csv",
+        "delimiter": ",",
+        "decimal": ".",
+        "parse_dates": [
+            "Data"
+        ],
+        "date_format": "%Y-%m-%d",
+        "index": "Data",
+        "aggregation": {
+            "Close_filled": "last"
+        }
+    }
+}
