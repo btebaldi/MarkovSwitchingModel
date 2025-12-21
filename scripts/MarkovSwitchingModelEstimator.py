@@ -180,7 +180,7 @@ class MarkovSwitching_estimator:
         Returns:
         - Omega_estimated: array (1 x M) with estimated variances for each regime.
         """
-        Omega_estimated = np.zeros((1, self.Model.NumRegimes))  # Initialize Omega estimates
+        Omega_estimated = np.ones((1, 0))  # Initialize Omega estimates
 
         # For each regime, calculate the variance
         for regime_number in range(self.Model.NumRegimes):
@@ -193,7 +193,60 @@ class MarkovSwitching_estimator:
             # Stack the estimated Omega for each regime
             Omega_estimated = np.column_stack([Omega_estimated, Omega])
 
-        return Omega_estimated
+        self.Model.Omega = Omega_estimated  # Store the estimated Omega, excluding the initial zeros
+        return self.Model.Omega
+    
+    def Fit(self, maxInterations = 1000, precision: float = 1e-6, traceLevel : int = 0) -> None:
+        """
+        Fits the Markov Switching Model by estimating all parameters.
+
+        Returns:
+            None
+        """
+
+        error = float('inf')
+        interationCounter = 0
+        while error > precision:
+
+            if(interationCounter < maxInterations):
+                interationCounter += 1
+            else:
+                break
+
+            # Store previous parameters for convergence check
+            prev_ll = self.Model.GetLogLikelihood()
+            
+            # Estimate all parameters
+            self.EstimateEta()
+            if traceLevel > 1:
+                print(f"Iteration {interationCounter}: Estimated Eta")
+            self.EstimateXiFiltered()
+            if traceLevel > 1:
+                print(f"Iteration {interationCounter}: Estimated Xi Filtered")
+            self.EstimateXiSmoothed()
+            if traceLevel > 1:
+                print(f"Iteration {interationCounter}: Estimated Xi Smoothed")
+            self.EstimateUnconditionalStateProbs()
+            if traceLevel > 1:
+                print(f"Iteration {interationCounter}: Estimated Unconditional State Probs")
+            self.EstimateTransitionMatrix()
+            if traceLevel > 1:
+                print(f"Iteration {interationCounter}: Estimated Transition Matrix")
+            self.EstimateBeta()
+            if traceLevel > 1:
+                print(f"Iteration {interationCounter}: Estimated Beta")
+            self.EstimateResiduals()
+            if traceLevel > 1:
+                print(f"Iteration {interationCounter}: Estimated Residuals")
+            self.EstimateOmega()
+            if traceLevel > 1:
+                print(f"Iteration {interationCounter}: Estimated Omega")
+            
+            # Calculate convergence error
+            cur_ll = self.Model.GetLogLikelihood()
+            if traceLevel > 0:
+                print(f"Iteration {interationCounter}: Estimated LogLikelihood {cur_ll}")
+            error = np.max(np.abs(cur_ll - prev_ll))
 
 
 def LoadModel(filePath):
@@ -242,3 +295,5 @@ if __name__ == "__main__":
     a.EstimateXiSmoothed()
     # Print the smoothed probabilities
     print(a.Model.Xi_smoothed)
+    print(a.Model.GetSSE())
+    print(a.Fit(traceLevel=2))

@@ -126,3 +126,32 @@ class MarkovSwitchingModel:
         """
         residuals = self.Y - self.X @ self.Beta
         return residuals
+
+    def GetSSE(self) -> np.ndarray:
+        """
+        Calculate the Sum of Squared Errors (SSE) for the model.
+        
+        SSE measures the total squared deviation between observed and predicted values.
+        A lower SSE indicates better model fit.
+
+        Returns:
+            np.ndarray: Sum of squared errors matrix of shape (regimes, regimes).
+        """
+        residuals = self.GetResiduals()
+        SSE = np.trace(residuals.T @ residuals)
+        return SSE
+
+    def GetLogLikelihood(self) -> float:
+        """
+        Calculate the log-likelihood of the model given current parameters.
+        
+        The likelihood combines the SSE with state probabilities weighted by
+        the smoothed regime probabilities across all observations.
+
+        Returns:
+            float: The log-likelihood value for the current model parameters.
+        """
+        loglikelihood = -np.sum(self.GetSSE())
+        for regime in range(self.NumRegimes):
+            loglikelihood += np.sum(np.log(self.UnconditionalStateProbs[regime]) * self.Xi_smoothed[:, regime])
+        return loglikelihood
