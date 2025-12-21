@@ -1,265 +1,244 @@
-# Carrega bibliotecas necessárias
+# Load necessary libraries
 import numpy as np
 import pandas as pd
 import scipy.stats as stats
 import MarkovSwitchingModel as MKM
 
-# M é o numero de Regimes
-# K é o numero de variaveis exogenas (contando a constante)
-# Beta é um vetor de coeficientes de dimensao (k x M)
+class MarkovSwitching_estimator: 
 
-class MK_estimator : 
-
-    def __init__(self, model : MKM.MarkovSwitchingModel) :
+    def __init__(self, model: MKM.MarkovSwitchingModel):
         """
+        Initializes the Class MarkovSwitching_estimator with a Markov Switching Model.
+
         Parameters:
-            Y (array-like): The dependent variable data.
-            X (array-like): The main independent variable(s).
-            num_regimes (int): Number of regimes in the data/model.
-            regimes_betas (array-like): Coefficient values (betas) per regime.
-            regimes_omegas (array-like): Omega (variance or scale) per regime.
+            model (MarkovSwitchingModel): An instance of the Markov Switching Model containing data and parameters.
         """
         self.Model = model
 
     def EstimateEta(self) -> np.ndarray:
         """
-        Calcula as "quase densidades" para cada regime em um modelo de Markov Switching.
+        Calculates the "quasi-densities" for each regime in a Markov Switching model.
+
+        Returns:
+            np.ndarray: The calculated quasi-densities for each regime.
         """
-        # ToDo: function should be Multivariate Normal, not univariate
-        # Betas = np.column_stack([model.Beta regime["Beta"] for regime in Regimes.values()])
-        # Omegas = np.column_stack([regime["Omega"] for regime in Regimes.values()])
+        # TODO: function should be Multivariate Normal, not univariate
+        # The following lines are commented out as they are not implemented yet.
         
-        self.Model.Eta = stats.norm.pdf(x = (self.Model.Y - (self.Model.X @ self.Model.Beta)) / self.Model.Omega, loc=0, scale=1)
+        # Calculate the quasi-densities using the normal probability density function
+        self.Model.Eta = stats.norm.pdf(x=(self.Model.Y - (self.Model.X @ self.Model.Beta)) / self.Model.Omega, loc=0, scale=1).reshape(-1, self.Model.NumRegimes)
+        # The commented line below suggests a future implementation using multivariate normal distribution.
         # scipy.stats.multivariate_normal.pdf(x = Y, mean = X @ Betas, cov = Omegas)
 
         return self.Model.Eta
 
-    # def Xi_filter(self, Eta : np.ndarray, transitionMatrix : np.ndarray, unconditional_state_probs  = None) -> np.ndarray:
     def EstimateXiFiltered(self) -> np.ndarray:
         """
-        Calcula o Xi filtrado (regime probabilities p(S_t | info até t) em um modelo de Markov Switching.
-        
-        Parâmetros:
-        - Eta: array (T x M) com as "quase densidades" por regime no tempo t.
-        - transitionMatrix: array (M x M) com as probabilidades de transição entre estados.
-        - unconditional_state_probs: array (M,) com as probabilidades incondicionais dos estados (opcional).
+        Calculates the filtered Xi (regime probabilities p(S_t | info up to t) in a Markov Switching model.
 
-        Retorna:
-        - Xi: array (T x M) com as probabilidades filtradas por regime.
+        Returns:
+        - Xi: array (T x M) with filtered probabilities by regime.
         """
 
-        # Eta = np.asarray(Eta, dtype=float)
-        # P = np.asarray(transitionMatrix, dtype=float)
-        # T, M = Eta.shape
-
-        # if unconditional_state_probs is None:
-        #     unconditional_state_probs = np.ones(Eta.shape[1])/Eta.shape[1]
-
-        # if len(unconditional_state_probs) != Eta.shape[1]:
-        #     raise ValueError(f"Unconditional state probabilities length ({len(unconditional_state_probs)}) must match number of regimes in Eta ({Eta.shape[1]})")
-
-        # Xi = np.full_like(Eta, 0.0)
-
-        for i in range(model.NumObservations):
+        # Initialize Xi with zeros
+        for i in range(self.Model.NumObservations):
             if i == 0:
-                Xi_t1 = model.UnconditionalStateProbs
+                Xi_t1 = self.Model.UnconditionalStateProbs  # Use unconditional probabilities for the first observation
             else:
-                Xi_t1 = model.TransitionMatrix.T @ model.Xi_filtered[i-1]
-            #  TODO: Check if we are doing the riht matrix multiplication here
-            model.Xi_filtered[i] = (model.Eta[i] * Xi_t1)/(model.Eta[i] @ Xi_t1)
+                Xi_t1 = self.Model.TransitionMatrix.T @ self.Model.Xi_filtered[i-1]  # Transition from the previous state
+            # TODO: Check if we are doing the right matrix multiplication here
+            # Update filtered probabilities
+            self.Model.Xi_filtered[i] = (self.Model.Eta[i] * Xi_t1) / (self.Model.Eta[i] @ Xi_t1) 
 
-        return model.Xi_filtered
+        return self.Model.Xi_filtered
 
     def EstimateXiSmoothed(self) -> np.ndarray:
+        """
+        Calculates the smoothed Xi (regime probabilities p(S_t | info all time points) in a Markov Switching model.
 
-        Xi_s = self.Model.Xi_filtered.copy()
+        Returns:
+        - Xi_s: array (T x M) with smoothed probabilities by regime.
+        """
+        Xi_s = self.Model.Xi_filtered.copy()  # Create a copy of filtered Xi
 
-        for i in range(self.Model.NumObservations-2, 0, -1):
-            Xi_s[i] = (self.Model.TransitionMatrix @ (Xi_s[i+1] / (self.Model.TransitionMatrix.T @ self.Model.Xi_filtered[i]))) * self.Model.Xi_filtered[i]
+        # Iterate backwards to smooth the probabilities
+        for i in range(self.Model.NumObservations - 2, 0, -1):
+            Xi_s[i] = (self.Model.TransitionMatrix @ (Xi_s[i + 1] / (self.Model.TransitionMatrix.T @ self.Model.Xi_filtered[i]))) * self.Model.Xi_filtered[i]
 
-        self.Model.Xi_smoothed = Xi_s
+        # Store the smoothed probabilities
+        self.Model.Xi_smoothed = Xi_s  
         return self.Model.Xi_smoothed
 
     def EstimateUnconditionalStateProbs(self) -> np.ndarray:
-        return self.Model.Xi_smoothed.mean(axis=0)
+        """
+        Estimates the unconditional state probabilities.
 
-    def EstimateTransitionMatrix(self) -> np.ndarray :
+        Returns:
+        - Unconditional probabilities for each regime.
+        """
+        # Average over the smoothed probabilities
+        return self.Model.Xi_smoothed.mean(axis=0)  
 
-        # get the number of regimes from Xi_smoothed
-        # M = Xi_smoothed.shape[1]
+    def EstimateTransitionMatrix(self) -> np.ndarray:
+        """
+        Estimates the transition matrix based on smoothed probabilities.
 
+        Returns:
+        - transitionMatrix: array (M x M) with estimated transition probabilities.
+        """
         # Create a zero matrix for transition counts
         transitionMatrix = np.zeros((self.Model.NumRegimes, self.Model.NumRegimes))
 
-        #  Estimate the most likely state at each time point
+        # Estimate the most likely state at each time point
         estimated_state = np.argmax(self.Model.Xi_smoothed, axis=1)
 
         # Convert the estimation to a column vector
         estimated_state = estimated_state.reshape(-1, 1)
 
-        # Calculate the unconditional state probabilities. This will be used to estimate the initial state probabilities.
+        # Calculate the unconditional state probabilities for initial state estimation
         UnconditionalStateProbs = self.EstimateUnconditionalStateProbs()
+        estimated_initial_state = np.argmax(UnconditionalStateProbs, axis=0)  # Initial state with highest probability
 
-        # Estimate the initial state as the state with the highest unconditional probability
-        estimated_initial_state = np.argmax(UnconditionalStateProbs, axis=0)
-
-        # create lagged version of estimated_state, the first value is the estimated initial state
+        # Create lagged version of estimated_state
         lagged_state = np.roll(estimated_state, 1, axis=0)
-        lagged_state[0] = estimated_initial_state
+        lagged_state[0] = estimated_initial_state  # Set the first value to the estimated initial state
 
-        #  create a new Xi_smoothed by adding estimated_state and lagged_state as new columns to Xi_smoothed
+        # Create a new Xi_smoothed by adding estimated_state and lagged_state as new columns
         Xi_smoothed_helper = np.hstack([
             self.Model.Xi_smoothed,
             estimated_state,
             lagged_state
         ])
 
-        # Goes through the transition probabilities positions and estimate them based on the smoothed probabilities
+        # Estimate transition probabilities based on smoothed probabilities
         for state_i in range(self.Model.NumRegimes):
             for state_j in range(self.Model.NumRegimes):
-
                 # Count_ij : P(S_t = j, S_t-1 = i)
-                Count_ij = Xi_smoothed_helper[(Xi_smoothed_helper[:, self.Model.NumRegimes] == state_j) & (Xi_smoothed_helper[:, self.Model.NumRegimes+1] == state_i),].shape[0]
+                Count_ij = Xi_smoothed_helper[(Xi_smoothed_helper[:, self.Model.NumRegimes] == state_j) & (Xi_smoothed_helper[:, self.Model.NumRegimes + 1] == state_i),].shape[0]
 
                 # Count_i : P(S_t-1 = i)
-                Count_i = Xi_smoothed_helper[Xi_smoothed_helper[:, self.Model.NumRegimes+1] == state_i, ].shape[0]
+                Count_i = Xi_smoothed_helper[Xi_smoothed_helper[:, self.Model.NumRegimes + 1] == state_i, ].shape[0]
 
                 # Update the transition counts matrix
+                # Calculate transition probability
                 transitionMatrix[state_i, state_j] = Count_ij / Count_i
 
-        return transitionMatrix
+        # Store the estimated transition matrix
+        self.Model.TransitionMatrix = transitionMatrix  
+        return self.Model.TransitionMatrix
 
-    def EstimateBeta(self) -> np.ndarray :
-        
-        # Initialize Beta matrix to store estimated coefficients for each regime
-        # Number of regimes from Xi_smoothed columns
-        # M = Xi_smoothed.shape[1]
+    def EstimateBeta(self) -> np.ndarray:
+        """
+        Estimates the coefficients (Betas) for each regime using OLS.
 
-        # Number of variables (columns in X)
-        # K = X.shape[1]
-            
-        # Initialize an empty array with K rows and 0 columns
+        Returns:
+        - Betas_estimated: array (K x M) with estimated coefficients for each regime.
+        """
+        # Initialize an empty array for estimated Betas
         Betas_estimated = np.zeros((self.Model.NumXVariables, 0))
-        
-        #  For each regime run a OLS to estimate the regression
-        for regime_number in range(self.Model.NumRegimes):
 
+        # For each regime, run OLS to estimate the regression
+        for regime_number in range(self.Model.NumRegimes):
             # Check dimensions of Omega
+            # Create weights based on smoothed probabilities
             Weights_Matrix = np.diag(self.Model.Xi_smoothed[:, regime_number])
 
-            A = (self.Model.X.T @ Weights_Matrix @ self.Model.X)
+            # Calculate the design matrix
+            A = (self.Model.X.T @ Weights_Matrix @ self.Model.X) 
 
             try:
-                A_inv = np.linalg.inv(A)
+                # Inverse of the design matrix
+                A_inv = np.linalg.inv(A) 
             except np.linalg.LinAlgError:
+                # Use pseudo-inverse if singular
                 A_inv = np.linalg.pinv(A)
 
-            B = A_inv @ self.Model.X.T @ Weights_Matrix @ self.Model.Y
+            # Calculate Betas
+            B = A_inv @ self.Model.X.T @ Weights_Matrix @ self.Model.Y 
 
-            # para cada regime, empilhar os Betas baseado na estimacao.
+            # Stack the estimated Betas for each regime
             Betas_estimated = np.column_stack([Betas_estimated, B])
-            # Betas_estimated = np.column_stack([Betas_estimated, B])
-                    # np.kron(B, I)
 
-        self.Model.Beta = Betas_estimated   
+        # Store the estimated Betas
+        self.Model.Beta = Betas_estimated  
         return Betas_estimated
 
-    def EstimateResiduals(self) -> np.ndarray :
+    def EstimateResiduals(self) -> np.ndarray:
+        """
+        Estimates the residuals from the model.
 
-        return self.Model.GetResiduals()
+        Returns:
+        - Residuals from the model.
+        """
+        # Call method to get residuals
+        return self.Model.GetResiduals() 
 
-    def EstimateOmega(self) -> np.ndarray :
-        
-        # Initialize Beta matrix to store estimated coefficients for each regime
-        # Number of regimes from Xi_smoothed columns
-        # M = Xi_smoothed.shape[1]
-        
-        Omega_estimated = np.zeros((1, self.Model.NumRegimes))
+    def EstimateOmega(self) -> np.ndarray:
+        """
+        Estimates the variance (Omega) for each regime.
 
-        #  For each regime run a OLS to estimate the regression
+        Returns:
+        - Omega_estimated: array (1 x M) with estimated variances for each regime.
+        """
+        Omega_estimated = np.zeros((1, self.Model.NumRegimes))  # Initialize Omega estimates
+
+        # For each regime, calculate the variance
         for regime_number in range(self.Model.NumRegimes):
+            Weights_Matrix = np.diag(self.Model.Xi_smoothed[:, regime_number])  # Create weights based on smoothed probabilities
+            residuals = self.Model.GetResiduals()  # Get residuals
 
-            # Check dimensions of Omega
-            Weights_Matrix = np.diag(self.Model.Xi_smoothed[:, regime_number])
-
-            residuals = self.Model.GetResiduals()
-
+            # Calculate Omega as the weighted sum of squared residuals
             Omega = (residuals[:, regime_number].T @ Weights_Matrix @ residuals[:, regime_number]) / sum(self.Model.Xi_smoothed[:, regime_number])
 
-            # para cada regime, empilhar os Betas baseado na estimacao.
+            # Stack the estimated Omega for each regime
             Omega_estimated = np.column_stack([Omega_estimated, Omega])
 
         return Omega_estimated
-    
 
 
-def LoadModel(filePath) : 
+def LoadModel(filePath):
+    """
+    Loads the Markov Switching Model from a CSV file.
+
+    Parameters:
+        filePath (str): Path to the CSV file containing the data.
+
+    Returns:
+        model (MKM.MarkovSwitchingModel): An instance of the Markov Switching Model.
+    """
     # Read a CSV file
     df = pd.read_csv(filePath)
 
-    # df.describe(include='all')
-    Y = df['Var1'].values.reshape((-1, 1))
-    X = df[['Var2', 'Var3']].values.reshape((-1, 2))
+    # Extract dependent and independent variables
+    Y = df['Var1'].to_numpy().reshape((-1, 1))  # Dependent variable
+    X = df[['Var2', 'Var3']].to_numpy().reshape((-1, 2))  # Independent variables
 
-    B = np.array([[1,1], [1,2]])
+    B = np.array([[1, 1], [1, 2]])  # Initial beta values
 
+    # Create an instance of the Markov Switching Model
     model = MKM.MarkovSwitchingModel(Y, X, num_regimes=2, beta=B)
-    # def __init__(self, Y, X, num_regimes, beta=None, omega=None):
 
     return model
 
 
-
 if __name__ == "__main__":
-
-    model = LoadModel(filePath = './dev/matrizYX.csv')
+    # Load the model from a CSV file
+    model = LoadModel(filePath='./dev/matrizYX.csv')
     
-    a =  MK_estimator(model)
+    # Create an estimator instance
+    a = MarkovSwitching_estimator(model)
+    
+    # Estimate quasi-densities
     a.EstimateEta()
+    # Print the estimated quasi-densities
     print(a.Model.Eta)
-    a.EstimateXiFiltered()
-    print(a.Model.Xi_filtered)
-    a.EstimateXiSmoothed()
-    print(a.Model.Xi_smoothed)
-
-# # Read a CSV file
-# df = pd.read_csv('matrizYX.csv')
-# print(df.head())
-
-# # df.describe(include='all')
-# Y = df['Var1'].values.reshape((-1, 1))
-# X = df[['Var2', 'Var3']].values.reshape((-1, 2))
-# print(Y[0:3, :])
-# print(X[0:3, :])
-
-# print(X.shape)
-#     # Read daily data
-#     dic_files =  Load_configuration(file_path=None)
-
-#     for key, config in dic_files.items( ) :
-#         print(f"Processing configuration for {key}...")
     
-#         # check all necessary keys are present
-#         required_keys = ['filePath', 'fileName',
-#                          'saveFilePath', 'saveFileName',
-#                          'delimiter', 'decimal', 'parse_dates',
-#                         'date_format', 'index', 'aggregation']
-        
-#         if not all(k in config for k in required_keys):
-#             print(f"Configuration for {key} is missing required keys.")
-#             raise ValueError(f"Missing required keys.")
-
-#         # read daily data
-#         daily_data = read_daily_database(config)
-        
-#         # Create aggregations
-#         weekly_data = create_weekly_database(daily_data, aggregation = config['aggregation'])
-#         monthly_data = create_monthly_database(daily_data, aggregation = config['aggregation'])
-        
-#         # Check if save directory exists, create if not
-#         if not os.path.exists(config['saveFilePath']):
-#             os.makedirs(config['saveFilePath'])
-        
-#         # Save results
-#         save_database(weekly_data, os.path.join(config['saveFilePath'], "weekly/", config["saveFileName"]) )
-#         save_database(monthly_data, os.path.join(config['saveFilePath'], "monthly/", config["saveFileName"]) )
+    # Estimate filtered probabilities
+    a.EstimateXiFiltered()
+    # Print the filtered probabilities
+    print(a.Model.Xi_filtered) 
+    
+    # Estimate smoothed probabilities
+    a.EstimateXiSmoothed()
+    # Print the smoothed probabilities
+    print(a.Model.Xi_smoothed)
