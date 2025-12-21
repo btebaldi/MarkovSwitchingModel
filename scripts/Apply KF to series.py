@@ -2,77 +2,25 @@ import pandas as pd
 from statsmodels.tsa.statespace.structural import UnobservedComponents
 import os
 import warnings
+import json
+from typing import Optional
 
-# Dictionary containing file configurations for data loading
-# Each entry specifies file path, delimiter, header row, date columns, and columns to use
-dic_files = {
-    'file01': {
-        'filePath': "./database/Original data/",
-        'fileName': "IBOV.csv",
-        'saveFilePath': "./database/filled/",
-        'saveFileName': "IBOV_filled.csv",
-        'delimiter': ",",
-        'decimal': ".",
-        'parse_dates': ["Data"],
-        'date_format': "%Y-%m-%d",
-        'cols': ["Close"]
-    },
-    'file02': {
-        'filePath': "./database/Original data/",
-        'fileName': "NASDAQ.csv",
-        'saveFilePath': "./database/filled/",
-        'saveFileName': "NASDAQ_filled.csv",
-        'delimiter': ",",
-        'decimal': ".",
-        'parse_dates': ["Data"],
-        'date_format': "%Y-%m-%d",
-        'cols': ["Close"]
-    },
-    'file03': {
-        'filePath': "./database/Original data/",
-        'fileName': "S&P 500.csv",
-        'saveFilePath': "./database/filled/",
-        'saveFileName': "SnP500_filled.csv",
-        'delimiter': ",",
-        'decimal': ".",
-        'parse_dates': ["Data"],
-        'date_format': "%Y-%m-%d",
-        'cols': ["Close"]
-    },
-    'file04': {
-        'filePath': "./database/Original data/",
-        'fileName': "SMLL.csv",
-        'saveFilePath': "./database/filled/",
-        'saveFileName': "SMLL_filled.csv",
-        'delimiter': ",",
-        'decimal': ".",
-        'parse_dates': ["Data"],
-        'date_format': "%Y-%m-%d",
-        'cols': ["Close"]
-    },
-    'file05': {
-        'filePath': "./database/Original data/",
-        'fileName': "T-BOND10.csv",
-        'saveFilePath': "./database/filled/",
-        'saveFileName': "T-BOND10_filled.csv",
-        'delimiter': ",",
-        'decimal': ".",
-        'parse_dates': ["Data"],
-        'date_format': "%Y-%m-%d",
-        'cols': ["Close"]
-    },
-    'file06': {
-        'filePath': "./database/Original data/",
-        'fileName': "DOLOF.csv",
-        'saveFilePath': "./database/filled/",
-        'saveFileName': "DOLARF_filled.csv",
-        'delimiter': ",",
-        'decimal': ".",
-        'parse_dates': ["Data"],
-        'date_format': "%Y-%m-%d",
-        'cols': ["Close"]
-    }
-} # end of dic_files
+def Load_configuration(file_path : Optional[str]) -> dict:
+    """Load configuration from a JSON file."""
+    if file_path is None:
+        file_path = "./conf/ApplyKalmanFilterConfiguration.json"
+
+    try:
+        with open(file_path, 'r') as file:
+            config = json.load(file)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Configuration file not found: {file_path}")
+    except json.JSONDecodeError:
+        raise ValueError(f"Invalid JSON format in configuration file: {file_path}")
+    
+    return config
+
+dic_files = Load_configuration(None)
 
 for key, config in dic_files.items():
 
