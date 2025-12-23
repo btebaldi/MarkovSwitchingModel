@@ -23,7 +23,7 @@ class MarkovSwitchingModel:
         """
         
         # Validate Y input: reject 2-column Y (multivariate not supported)
-        if len(Y.shape) == 2 and Y.shape[1] == 2:
+        if len(Y.shape) == 2 and Y.shape[1] >= 2:
             raise NotImplementedError("Method not implemented for two Y columns")
 
         # Store the dependent variable (Y)
@@ -87,6 +87,9 @@ class MarkovSwitchingModel:
         # Xi_filtered: filtered state probabilities (one-step ahead)
         self.Xi_filtered = np.zeros((self.NumObservations, self.NumRegimes))
         
+        self.Xi_t1_filtered = np.zeros((self.NumObservations, self.NumRegimes))
+        
+
         # Xi_smoothed: smoothed state probabilities (full-sample inference)
         self.Xi_smoothed = np.zeros((self.NumObservations, self.NumRegimes))
 
@@ -127,7 +130,7 @@ class MarkovSwitchingModel:
         residuals = self.Y - self.X @ self.Beta
         return residuals
 
-    def GetSSE(self) -> np.ndarray:
+    def GetSSE(self) -> float:
         """
         Calculate the Sum of Squared Errors (SSE) for the model.
         
@@ -138,7 +141,13 @@ class MarkovSwitchingModel:
             np.ndarray: Sum of squared errors matrix of shape (regimes, regimes).
         """
         residuals = self.GetResiduals()
-        SSE = np.trace(residuals.T @ residuals)
+
+        SSE = 0
+        for regime_number in range(self.NumRegimes):
+
+            Weights_Matrix = np.diag(self.Xi_smoothed[:, regime_number])
+            SSE += residuals[:, regime_number].T @ Weights_Matrix @ residuals[:, regime_number]
+        
         return SSE
 
     def GetLogLikelihood(self) -> float:
@@ -151,7 +160,7 @@ class MarkovSwitchingModel:
         Returns:
             float: The log-likelihood value for the current model parameters.
         """
-        loglikelihood = -np.sum(self.GetSSE())
+        loglikelihood = -self.GetSSE()
         for regime in range(self.NumRegimes):
             loglikelihood += np.sum(np.log(self.UnconditionalStateProbs[regime]) * self.Xi_smoothed[:, regime])
         return loglikelihood
