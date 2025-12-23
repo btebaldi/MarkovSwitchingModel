@@ -308,6 +308,7 @@ class MarkovSwitching_estimator:
             if traceLevel > 0:
                 print(f"Iteration {interationCounter}: Estimated LogLikelihood {cur_ll} with change {delta}")
             delta = abs(cur_ll - prev_ll)
+            # delta = -1
             
     
 
@@ -323,19 +324,21 @@ def LoadModel(filePath):
     """
     # Read a CSV file
     # df = pd.read_csv(filePath)
-    df = pd.read_csv("./database/resultados.csv", decimal=',', sep=';')
+    # df = pd.read_csv("./database/resultados.csv", decimal=',', sep=';')
+    df = pd.read_csv("c:\\Users\\bteba\\Downloads\\dadosregimes3.csv", decimal=',', sep=';')
 
     # Extract dependent and independent variables
     # Y = df['Var1'].to_numpy().reshape((-1, 1))  # Dependent variable
     
     # Y = np.log(df['Close_filled'].to_numpy().reshape((-1, 1)))  # Dependent variable
-    Y = df['y'].to_numpy().reshape((-1, 1))  # Dependent variable
+    Y = df['Y'].to_numpy().reshape((-1, 1))  # Dependent variable
     
 
     # X = df[['Var2', 'Var3']].to_numpy().reshape((-1, 2))  # Independent variables
 
     # Create a lagged version of the dependent variable Y
-    X = np.column_stack([np.ones(Y.shape[0]), df['x'].to_numpy()])
+    # X = np.column_stack([np.ones(Y.shape[0]), df['x'].to_numpy()])
+    X = np.column_stack([df['X'].to_numpy(), df['Y1'].to_numpy()])
     # X[0,1] = np.nan  # Set the first value to NaN since it has no lagged value
     
     # Y = Y[2:, ]#.to_numpy().reshape((-1, 1))  # Remove the first row with NaN        
@@ -343,17 +346,51 @@ def LoadModel(filePath):
 
     # Combine the original and lagged dependent variable into the independent variables
 
-    B = np.array([[1, 1], [0.8, 2]])  # Initial beta values
+    B = np.array([[1, 2, 3], [0.9, 0.5, 0.2]])  # Initial beta values
 
     # Create an instance of the Markov Switching Model
-    model = MKM.MarkovSwitchingModel(Y, X, num_regimes=2, beta=B)
+    model = MKM.MarkovSwitchingModel(Y, X, num_regimes=3, beta=B)
+
+    return model
+
+def LoadModel_IBOV():
+    df = pd.read_csv(".\\database\\filled\\IBOV_filled.csv", decimal='.', sep=',')
+
+    # Extract dependent and independent variables
+    # Y = df['Var1'].to_numpy().reshape((-1, 1))  # Dependent variable
+    df['log_return'] = np.log(df['Close_filled'] / df['Close_filled'].shift(1))
+    df['log_return2'] = df['log_return'].shift(1)
+
+    df = df.iloc[2:, :]
+
+    # Y = np.log(df['Close_filled'].to_numpy().reshape((-1, 1)))  # Dependent variable
+    Y = df['log_return'].to_numpy().reshape((-1, 1))  # Dependent variable
+    
+    # X = df[['Var2', 'Var3']].to_numpy().reshape((-1, 2))  # Independent variables
+
+    # Create a lagged version of the dependent variable Y
+    X = np.column_stack([np.ones(Y.shape[0]), df['log_return2'].to_numpy()])
+    # X = np.column_stack([df['X'].to_numpy(), df['Y1'].to_numpy()])
+    # X[0,1] = np.nan  # Set the first value to NaN since it has no lagged value
+    
+    # Y = Y[2:, ]#.to_numpy().reshape((-1, 1))  # Remove the first row with NaN        
+    # X = X[2:, ]#.to_numpy().reshape((-1, 2)) 
+
+    # Combine the original and lagged dependent variable into the independent variables
+
+    B = np.array([[0.01, 0.02, 0.03], [0.1, 0.05, 0.02]])  # Initial beta values
+
+    # Create an instance of the Markov Switching Model
+    model = MKM.MarkovSwitchingModel(Y, X, num_regimes=3, beta=B)
 
     return model
 
 
+
 if __name__ == "__main__":
     # Load the model from a CSV file
-    model = LoadModel(filePath='./dev/matrizYX.csv')
+    # model = LoadModel(filePath='./dev/matrizYX.csv')
+    model = LoadModel_IBOV()
     
     # Create an estimator instance
     a = MarkovSwitching_estimator(model)
