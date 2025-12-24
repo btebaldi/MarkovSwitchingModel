@@ -257,7 +257,7 @@ class MarkovSwitching_estimator:
         self.Model.Omega = Omega_estimated  # Store the estimated Omega, excluding the initial zeros
         return self.Model.Omega
     
-    def Fit(self, maxInterations = 1000, precision: float = 1e-6, traceLevel : int = 0) -> None:
+    def Fit(self, maxInterations = 1000, minInterations = 5, precision: float = 1e-6, traceLevel : int = 0) -> None:
         """
         Fits the Markov Switching Model by estimating all parameters.
 
@@ -267,7 +267,7 @@ class MarkovSwitching_estimator:
 
         delta = float('inf')
         interationCounter = 0
-        while delta > precision:
+        while (delta > precision) or (interationCounter < minInterations):
 
             if(interationCounter < maxInterations):
                 interationCounter += 1
