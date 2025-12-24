@@ -120,8 +120,11 @@ class MarkovSwitching_estimator:
         # This can be vectorized for better performance.
         for regime_from in range(self.Model.NumRegimes):
             for regime_to in range(self.Model.NumRegimes):
-                PP_ij = sum((self.Model.Xi_filtered[0:-1, regime_from] /  self.Model.Xi_t1_filtered[0:-1, regime_to]) * self.Model.Xi_smoothed[1:, regime_to])                
-                Denominator = sum(self.Model.Xi_smoothed[0:-1, regime_from])
+            
+                xxi = np.append(self.Model.Xi_smoothed[1:, regime_to], self.Model.Xi_filtered[-1, regime_to])
+
+                PP_ij = sum((self.Model.Xi_filtered[ :, regime_from] /  self.Model.Xi_t1_filtered[ :, regime_to]) * xxi)                
+                Denominator = sum(self.Model.Xi_smoothed[ :, regime_from])
                 
                 PP[regime_from, regime_to] = self.Model.TransitionMatrix[regime_from, regime_to] * PP_ij/Denominator
 
