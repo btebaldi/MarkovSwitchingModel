@@ -27,23 +27,27 @@ class MarkovSwitching_estimator:
         
         # Calculate the quasi-densities using the normal probability density function
 
+        current_Eta = np.ones((self.Model.NumObservations, 0))  # Initialize joe with ones
+
         # To make the procedure faster one could vectorize the calculation here.
         for regime in range(self.Model.NumRegimes):
-            for time in range(self.Model.NumObservations):
-                q = (self.Model.Y[time, :] - (self.Model.X[time, :].reshape(1,-1) @ self.Model.Beta[:, regime].reshape(-1,1))).item()
-                if False:
-                    # Used for debug porpouses only. Can be removed later.
+            # estimate the quantile of each observation in the regime
+            q = self.Model.Y[:, :] - (self.Model.X @ self.Model.Beta[:, regime].reshape(-1,1))
+            
+            # estimate the quasi-density for each observation in the regime
+            q_prob = stats.norm.pdf(x=q, loc=0, scale=self.Model.Omega[0, regime]**0.5)     
+            
+            # For numerical stability, ensure no zero probabilities
+            q_prob = np.where(q_prob > 0, q_prob, 1e-6)
 
-                    print("regime:", regime, "\t time: ", time)
-                    print("Y:", self.Model.Y[time, :])
-                    print("X:", self.Model.X[time, :].reshape(1,-1))
-                    print("beta:", self.Model.Beta[:, regime].reshape(-1,1))
-                    print("q:", q)
-                self.Model.Eta[time, regime] = max(stats.norm.pdf(x=q, loc=0, scale=self.Model.Omega[0, regime]**0.5), 1e-6)
+            # Stack the calculated quasi-densities for each regime
+            current_Eta = np.column_stack([current_Eta, q_prob])
 
             # The commented line below suggests a future implementation using multivariate normal distribution.
             # scipy.stats.multivariate_normal.pdf(x = Y, mean = X @ Betas, cov = Omegas)
             
+        # Store the calculated quasi-densities
+        self.Model.Eta = current_Eta
         return self.Model.Eta
 
     def EstimateXiFiltered(self) -> np.ndarray:
@@ -311,7 +315,6 @@ class MarkovSwitching_estimator:
             if traceLevel > 0:
                 print(f"Iteration {interationCounter}: Estimated LogLikelihood {cur_ll} with change {delta}")
             delta = abs(cur_ll - prev_ll)
-            # delta = -1
             
     
 
