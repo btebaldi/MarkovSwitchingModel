@@ -9,7 +9,7 @@ class MarkovSwitchingModel:
     """
 
     def __init__(self, Y, X, num_regimes, beta=None, omega=None,
-                  transitionMatrix=None, unconditional_state_probs=None, param_names = None):
+                  transitionMatrix=None, unconditional_state_probs=None, param_names = None, dates_label=None):
         """
         Initialize a MarkovSwitchingModel instance with data and parameters.
 
@@ -27,8 +27,15 @@ class MarkovSwitchingModel:
         if len(Y.shape) == 2 and Y.shape[1] >= 2:
             raise NotImplementedError("Method not implemented for two Y columns")
 
+        # Check for missing values or NaN in Y
+        if np.any(np.isnan(Y)):
+            raise ValueError("Y contains NaN (missing) values.")
+
         # Store the dependent variable (Y)
         self.Y = Y
+
+        if np.any(np.isnan(X)):
+            raise ValueError("X contains NaN (missing) values.")
 
         # Store the independent variables (X)
         self.X = X
@@ -134,6 +141,18 @@ class MarkovSwitchingModel:
                     raise ValueError("param_names['X'] must be a list with exactly 5 elements.")
             self.ParamNames = param_names
 
+        # ===== Initialize dates label =====
+        if dates_label is None:
+            # Default: initialize as sequential numbering from 0 to NumObservations-1
+            self.DatesLabel = np.arange(self.NumObservations)
+        else:
+            # Validate dates_label length matches number of observations
+            if len(dates_label) != self.NumObservations:
+                raise ValueError(f"dates_label length ({len(dates_label)}) must match number of observations ({self.NumObservations}).")
+            self.DatesLabel = dates_label
+
+        
+
     def GetResiduals(self):
         """
         Calculate and return residuals from the model.
@@ -200,7 +219,8 @@ class MarkovSwitchingModel:
         output += f"\nSummary of Results\n"
         output += f"{'Date:':<22s}{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n"
         output += f"{'No. of observations:':<22s}{self.NumObservations}\n"
-        output += f"{'log-likelihood:':<22s}{self.GetLogLikelihood():.4f}\n"
+        output += f"{'log-likelihood (Cavicchioli):':<22s}{self.GetLogLikelihood():.4f}\n"
+        output += f"{'log-likelihood (Doornik):':<22s}{self.LogLikeOx():.4f}\n"
         output += f"{'Varriance:':<22s}{self.EstimateResidualVariance()}\n"
         output += "=" * 88 + "\n"
         output += "\n"
@@ -298,7 +318,12 @@ class MarkovSwitchingModel:
     
     def LogLikeOx (self):
 
-        likelihood = self.Eta @ self.UnconditionalStateProbs.reshape((-1, 1))
+
+        myLaggedXi_filtered = self.Xi_filtered.copy()
+        myLaggedXi_filtered = np.roll(myLaggedXi_filtered, 1, axis=0)
+        myLaggedXi_filtered[0,:] = self.UnconditionalStateProbs
+        
+        likelihood =  (myLaggedXi_filtered * self.Eta) @ np.ones((self.NumRegimes,1))
         
         # likelihood = np.sum(residual, axis=1)
         

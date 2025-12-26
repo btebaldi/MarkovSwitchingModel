@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 import scipy.stats as stats
 import MarkovSwitchingModel as MKM
+import matplotlib.pyplot as plt
+from datetime import datetime
 
 class MarkovSwitching_estimator: 
 
@@ -313,7 +315,7 @@ class MarkovSwitching_estimator:
             cur_ll = self.Model.GetLogLikelihood()
             delta = cur_ll - prev_ll
             if traceLevel > 0:
-                print(f"Iteration {interationCounter}: Estimated LogLikelihood {cur_ll:.6f} with change {delta:9.6f} - {self.Model.LogLikeOx():9.6f}")
+                print(f"Iteration {interationCounter}: Estimated LogLikelihood {cur_ll:.6f} with change {delta:9.6f} - {self.Model.LogLikeOx():.6e}")
             delta = abs(cur_ll - prev_ll)
             
     
@@ -359,33 +361,57 @@ def LoadModel(filePath):
 
     return model
 
-def LoadModel_IBOV():
+def LoadModel_IBOV(level = True, intercept = True, trend = True):
     df = pd.read_csv(".\\database\\filled\\IBOV_filled.csv", decimal='.', sep=',')
 
-    # Extract dependent and independent variables
-    # df['log_return'] = np.log(df['Close_filled'] / df['Close_filled'].shift(1))
-    # df['log_return2'] = df['log_return'].shift(1)
-    # df = df.iloc[2:, :]
-    # Y = df['log_return'].to_numpy().reshape((-1, 1))  # Dependent variable
-    # X = np.column_stack([np.ones(Y.shape[0]), df['log_return2'].to_numpy()])
-
-    #  Dependent variable
-    df['lag_Close_filled'] = df['Close_filled'].shift(1)
-    df = df.iloc[1:, :]
-    Y = np.log(df['Close_filled'].to_numpy().reshape((-1, 1))) 
-    trend = np.arange(Y.shape[0])
-    intercept = np.ones(Y.shape[0])
-    X = np.column_stack([intercept, trend, np.log(df['lag_Close_filled'].to_numpy())])
     
+    if level:
+        # Dependent variable
+        df['Close_filled_1'] = df['Close_filled'].shift(1)
+        df = df.iloc[1:, :]
 
+        Y = df['Close_filled'].to_numpy().reshape((-1, 1)) 
+        X = df['Close_filled_1'].to_numpy()
 
-    # Create an instance of the Markov Switching Model
-    param_names = {'Y':'Close_filled', 'X':['Intercept', 'Trend', 'Lagged_Close']}
+    else :
+        # Extract dependent and independent variables
+        df['log_return'] = np.log(df['Close_filled'] / df['Close_filled'].shift(1))
+        df['log_return_1'] = df['log_return'].shift(1)
+        df = df.iloc[2:, :]
 
-    TransProb = np.array([[0.950, 0.030, 0.020],
-                          [0.025, 0.950, 0.025],
-                          [0.040, 0.010, 0.950]])
+        Y = df['log_return'].to_numpy().reshape((-1, 1))  # Dependent variable
+        X = df['log_return_1'].to_numpy()
+        np.column_stack([np.ones(Y.shape[0]), df['log_return2'].to_numpy()])
+
     
+        trend = np.arange(Y.shape[0])
+        intercept = np.ones(Y.shape[0])
+
+        # Create an instance of the Markov Switching Model
+        param_names = {'Y':'Close_filled', 'X':['Intercept', 'Trend', 'Lagged_Close']}
+        
+        if trend :
+            X = np.column_stack([trend, X])
+        else:
+            param_names['X'].remove('Trend')
+
+
+        if intercept :
+            X = np.column_stack([intercept, X])
+        else:
+            param_names['X'].remove('Intercept')
+
+    # initialize transition matrix with user input
+    num_regimes = 3
+    TransProb = np.zeros((num_regimes, num_regimes))
+    
+    for i in range(num_regimes):
+        for j in range(num_regimes):
+            if i == j:
+                TransProb[i, j] = 0.9
+            else:
+                TransProb[i, j] = 0.1/(num_regimes - 1)
+     
     # B = np.array([[0.01, 0.02, 0.03], [0.1, 0.7, 0.1], [0.3, 0.1, 0.2]])  # Initial beta values
     B = np.array([[0.25752, 0.069911, 0.13291],
                   [2.3547e-03, 2.8407e-03, 2.0194e-03],
@@ -395,42 +421,110 @@ def LoadModel_IBOV():
 
     model = MKM.MarkovSwitchingModel(Y, X, num_regimes=3, beta=B, param_names=param_names, transitionMatrix=TransProb, omega=Om)
 
+    return model
+
+def LoadModel_Dolar():
+    # Load CSV file containing monthly USD exchange rate data
+    # decimal='.' specifies that periods are used for decimal separation
+    # sep=',' specifies comma as the column delimiter
+    df = pd.read_csv(".\\database\\DOLARF_mensal_ultimo_dia.csv", decimal='.', sep=',')
+
+    # Create a lagged version of the dependent variable (Close-Level shifted by 1 period)
+    # This lagged value will be used as an independent variable for autoregressive modeling
+    df['lag_Close_Level'] = df['Close-Level'].shift(1)
+    
+    # Remove the first row which contains NaN due to the lag operation
+    df = df.iloc[1:, :]
+    
+    # Extract the dependent variable Y (Close-Level) and reshape to column vector
+    # reshape((-1, 1)) converts it from 1D array to 2D column vector for matrix operations
+    Y = df['Close-Level'].to_numpy().reshape((-1, 1))
+    
+    # Parse the date column (first column) and convert to datetime format
+    # format="%Y(%m)" indicates the date format is year followed by month in parentheses
+    dt = pd.to_datetime(df.iloc[:,0], format="%Y(%m)")
+    
+    # Create a trend variable (linear time index from 0 to T-1)
+    # Note: This variable is currently unused in the model specification below
+    trend = np.arange(Y.shape[0])
+    
+    # Create an intercept column (vector of ones) for the constant term in the regression
+    intercept = np.ones(Y.shape[0])
+    
+    # Build the independent variable matrix X by horizontally stacking the intercept and lagged dependent variable
+    # X has dimensions (T x 2): first column is the constant, second column is lagged Close-Level
+    X = np.column_stack([intercept, df['lag_Close_Level'].to_numpy()])
+    
+    # Create an instance of the Markov Switching Model
+    param_names = {'Y':'Close_filled', 'X':['Intercept', 'Lagged_Close']}
+
+    TransProb = np.array([[0.950, 0.030, 0.020],
+                          [0.025, 0.950, 0.025],
+                          [0.040, 0.010, 0.950]])
+    
+    # B = np.array([[0.01, 0.02, 0.03], [0.1, 0.7, 0.1], [0.3, 0.1, 0.2]])  # Initial beta values
+    B = np.array([[0.25752, 0.069911, 0.13291],
+                #   [2.3547e-03, 2.8407e-03, 2.0194e-03],
+                  [0.8, 0.9, 0.85]])
+
+    Om = np.array([[0.02**2, 0.015**2, 0.010**2]])  # Initial omega values
+
+    model = MKM.MarkovSwitchingModel(Y, X, num_regimes=3, beta=B, param_names=param_names, transitionMatrix=TransProb, omega=Om, dates_label=dt)
 
     return model
 
 
+def GenerateSmoothProbabilitiesPlot(model: MKM.MarkovSwitchingModel) -> None:
+    """
+    Visualizes the smoothed regime probabilities for each regime over time.
+    
+    This function creates a multi-panel plot where each subplot displays the smoothed
+    probability of being in a specific regime across all time periods. The plot is saved
+    as a PNG file for later analysis.
+    
+    Parameters:
+        model (MKM.MarkovSwitchingModel): The fitted Markov Switching Model containing
+                                          smoothed probabilities (Xi_smoothed) and dates.
+    
+    Returns:
+        None: Saves the plot to 'markov_switching_plot.png' without returning a value.
+    """
+    # Create a figure with subplots, one for each regime
+    # figsize=(10, 6) sets the figure dimensions to 10 inches wide by 6 inches tall
+    fig, axes = plt.subplots(model.NumRegimes, figsize=(10, 6))
+
+    # Iterate through each regime to plot its smoothed probability over time
+    for cur_mod in range(model.NumRegimes):
+        # Select the current subplot (axis) for the current regime
+        ax = axes[cur_mod]
+        
+        # Plot the smoothed probabilities for the current regime against the date labels
+        # model.DatesLabel contains the time index (dates or periods)
+        # model.Xi_smoothed[:, cur_mod] contains the smoothed probability for regime cur_mod at each time point
+        ax.plot(model.DatesLabel, model.Xi_smoothed[:, cur_mod])
+        
+        # Set the y-axis label to indicate which regime this subplot represents
+        ax.set_ylabel(f"Regime {cur_mod}")
+    
+    # Adjust the layout to prevent overlapping labels and titles
+    fig.tight_layout()
+
+    # Save the figure to a PNG file with high resolution (300 DPI)
+    # bbox_inches='tight' ensures no content is cut off at the figure edges
+    plt.savefig(f"markov_switching_plot_{datetime.today().strftime('%Y-%m-%d')}.png", dpi=300, bbox_inches='tight')
+    
+
 
 if __name__ == "__main__":
     # Load the model from a CSV file
-    # model = LoadModel(filePath='./dev/matrizYX.csv')
-    model = LoadModel_IBOV()
+    model = LoadModel_Dolar()
     
     # Create an estimator instance
-    a = MarkovSwitching_estimator(model)
+    ModelEstimator = MarkovSwitching_estimator(model)
     
-    # Estimate quasi-densities
-    # a.EstimateEta()
-    # Print the estimated quasi-densities
-    # print(a.Model.Eta)
+    ModelEstimator.Fit(traceLevel=1, precision=1e-7)
     
-    # Estimate filtered probabilities
-    # a.EstimateXiFiltered()
-    # Print the filtered probabilities
-    # print(a.Model.Xi_filtered) 
+    print(ModelEstimator.Model)
     
-    # print(a.Model.Xi_t1_filtered) 
-    # Estimate smoothed probabilities
-    # a.EstimateXiSmoothed()
-    # print(a.Model.Xi_smoothed) 
-
-    # a.EstimateTransitionMatrix()
-    # a.EstimateBeta()
-    # a.EstimateOmega()
-
-
-    # Print the smoothed probabilities
-    # print(a.Model.Xi_smoothed)
-    # print(a.Model.GetSSE())
-    a.Fit(traceLevel=1, precision=1e-4)
-    print(a.Model)
+    GenerateSmoothProbabilitiesPlot(ModelEstimator.Model)
     print("Finished Estimation")
