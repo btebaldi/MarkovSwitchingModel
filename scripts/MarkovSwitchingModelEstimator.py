@@ -313,7 +313,7 @@ class MarkovSwitching_estimator:
             cur_ll = self.Model.GetLogLikelihood()
             delta = cur_ll - prev_ll
             if traceLevel > 0:
-                print(f"Iteration {interationCounter}: Estimated LogLikelihood {cur_ll} with change {delta}")
+                print(f"Iteration {interationCounter}: Estimated LogLikelihood {cur_ll:.6f} with change {delta:9.6f} - {self.Model.LogLikeOx():9.6f}")
             delta = abs(cur_ll - prev_ll)
             
     
@@ -363,31 +363,38 @@ def LoadModel_IBOV():
     df = pd.read_csv(".\\database\\filled\\IBOV_filled.csv", decimal='.', sep=',')
 
     # Extract dependent and independent variables
-    # Y = df['Var1'].to_numpy().reshape((-1, 1))  # Dependent variable
-    df['log_return'] = np.log(df['Close_filled'] / df['Close_filled'].shift(1))
-    df['log_return2'] = df['log_return'].shift(1)
+    # df['log_return'] = np.log(df['Close_filled'] / df['Close_filled'].shift(1))
+    # df['log_return2'] = df['log_return'].shift(1)
+    # df = df.iloc[2:, :]
+    # Y = df['log_return'].to_numpy().reshape((-1, 1))  # Dependent variable
+    # X = np.column_stack([np.ones(Y.shape[0]), df['log_return2'].to_numpy()])
 
-    df = df.iloc[2:, :]
-
-    # Y = np.log(df['Close_filled'].to_numpy().reshape((-1, 1)))  # Dependent variable
-    Y = df['log_return'].to_numpy().reshape((-1, 1))  # Dependent variable
+    #  Dependent variable
+    df['lag_Close_filled'] = df['Close_filled'].shift(1)
+    df = df.iloc[1:, :]
+    Y = np.log(df['Close_filled'].to_numpy().reshape((-1, 1))) 
+    trend = np.arange(Y.shape[0])
+    intercept = np.ones(Y.shape[0])
+    X = np.column_stack([intercept, trend, np.log(df['lag_Close_filled'].to_numpy())])
     
-    # X = df[['Var2', 'Var3']].to_numpy().reshape((-1, 2))  # Independent variables
 
-    # Create a lagged version of the dependent variable Y
-    X = np.column_stack([np.ones(Y.shape[0]), df['log_return2'].to_numpy()])
-    # X = np.column_stack([df['X'].to_numpy(), df['Y1'].to_numpy()])
-    # X[0,1] = np.nan  # Set the first value to NaN since it has no lagged value
-    
-    # Y = Y[2:, ]#.to_numpy().reshape((-1, 1))  # Remove the first row with NaN        
-    # X = X[2:, ]#.to_numpy().reshape((-1, 2)) 
-
-    # Combine the original and lagged dependent variable into the independent variables
-
-    B = np.array([[0.01, 0.02, 0.03], [0.1, 0.05, 0.02]])  # Initial beta values
 
     # Create an instance of the Markov Switching Model
-    model = MKM.MarkovSwitchingModel(Y, X, num_regimes=3, beta=B)
+    param_names = {'Y':'Close_filled', 'X':['Intercept', 'Trend', 'Lagged_Close']}
+
+    TransProb = np.array([[0.950, 0.030, 0.020],
+                          [0.025, 0.950, 0.025],
+                          [0.040, 0.010, 0.950]])
+    
+    # B = np.array([[0.01, 0.02, 0.03], [0.1, 0.7, 0.1], [0.3, 0.1, 0.2]])  # Initial beta values
+    B = np.array([[0.25752, 0.069911, 0.13291],
+                  [2.3547e-03, 2.8407e-03, 2.0194e-03],
+                  [0.97664, 0.99355, 0.98788]])
+
+    Om = np.array([[0.017421**2, 0.017353**2, 0.010883**2]])  # Initial omega values
+
+    model = MKM.MarkovSwitchingModel(Y, X, num_regimes=3, beta=B, param_names=param_names, transitionMatrix=TransProb, omega=Om)
+
 
     return model
 
@@ -424,6 +431,6 @@ if __name__ == "__main__":
     # Print the smoothed probabilities
     # print(a.Model.Xi_smoothed)
     # print(a.Model.GetSSE())
-    print(a.Fit(traceLevel=1))
-
+    a.Fit(traceLevel=1, precision=1e-4)
+    print(a.Model)
     print("Finished Estimation")
