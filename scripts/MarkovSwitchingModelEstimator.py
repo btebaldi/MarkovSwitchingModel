@@ -315,13 +315,13 @@ class MarkovSwitching_estimator:
             cur_ll = self.Model.GetLogLikelihood()
             delta = cur_ll - prev_ll
             if traceLevel > 0:
-                print(f"Iteration {interationCounter}: Estimated LogLikelihood {cur_ll:.6f} with change {delta:9.6f} - {self.Model.LogLikeOx():.6e}")
+                print(f"Iteration {interationCounter}: Estimated LogLikelihood {cur_ll:.6f} with change {delta:9.6f} - {self.Model.LogLikeOx():.6e}{' Warning: model is diverging. Log-Likelihood decreased.' if delta < 0 else ''}")
             delta = abs(cur_ll - prev_ll)
             
 def LoadModel(filePath, 
-              variable, ar = 1, level = False, intercept = True, trend = True,
+              variable, Xvariable = None, ar = 1, level = False, intercept = True, trend = True,
               regimes = 2,
-              decimal='.', delimiter=',', parse_dates=['Data'], date_format="%Y-%m-%d",
+              decimal='.', delimiter=',', parse_dates=None, date_format="%Y-%m-%d",
               index_col=None, data_ini = None, data_fim = None) -> MKM.MarkovSwitchingModel:
     """
     Loads and preprocesses data from a CSV file to create a Markov Switching Model.
@@ -339,7 +339,7 @@ def LoadModel(filePath,
         regimes (int): Number of regimes in the Markov Switching Model. Default: 2
         decimal (str): Decimal separator in CSV file. Default: '.'
         delimiter (str): Column delimiter in CSV file. Default: ','
-        parse_dates (list): List of column names to parse as dates. Default: ['Data']
+        parse_dates (list): List of column names to parse as dates. Default: None
         date_format (str): Format string for date parsing. Default: "%Y-%m-%d"
         index_col (int/str): Column to use as index (datetime index). Default: None
         data_ini (str): Start date for filtering data in format matching date_format. Default: None
@@ -406,10 +406,17 @@ def LoadModel(filePath,
     data_intercept = np.ones(Y.shape[0])
     
     # Create an instance of the Markov Switching Model
-    param_names = {'Y':'Close_filled', 'X':['Intercept', 'Trend'] + [f'Lag_{i}' for i in range(1, ar + 1)]}
+    Total_Exo_vars = len(Xvariable) if Xvariable is not None else 0
+    param_names = {'Y':'Close_filled', 'X':[f'Exo_{i}' for i in range(Total_Exo_vars)] + 
+                        ['Intercept', 'Trend'] + 
+                    [f'Lag_{i}' for i in range(1, ar + 1)]}
  
     # add intercept and trend if specified
     X = np.empty((Y.shape[0], 0))  # Initialize X as an empty array
+
+    if Xvariable is not None:
+        X = np.column_stack([X, df[Xvariable].to_numpy()])
+
     if trend :
         X = np.column_stack([X, data_trend])
     else:
@@ -433,16 +440,15 @@ def LoadModel(filePath,
         Beta_initial = np.vstack([Beta_initial, random_values])
     
     # ===== Initial beta values =====
-    # Beta_initial = np.array([[0.25752, 0.069911, 0.13291],
-    #             #   [2.3547e-03, 2.8407e-03, 2.0194e-03],
-    #               [0.8, 0.9, 0.85]])
+    Beta_initial = np.array([[10, 60],
+                  [0.04, 0.05]])
     # np.random.uniform(-0.5, 0.5, size=regimes)
 
-    # Omega_initial = np.array([[0.02**2, 0.015**2, 0.010**2]])  # Initial omega values``
+    Omega_initial = np.array([[50**2, 40**2]])  # Initial omega values``
 
     model = MKM.MarkovSwitchingModel(Y, X, num_regimes=regimes,
                                     beta=Beta_initial, 
-                                    #  omega=Omega_initial, 
+                                     omega=Omega_initial, 
                                      param_names=param_names,
                                      dates_label=df.index)
 
@@ -499,19 +505,28 @@ if __name__ == "__main__" :
     #                   ar = 5,
     #                   decimal=',', delimiter=';', parse_dates=None, date_format=None)
     
-    model = LoadModel(filePath = ".\\database\\filled\\monthly\\DOLARF_output.csv",
-                      variable = "Close_filled", # specify the dependent variable
-                      regimes = 2,               # specify the number of regimes
-                      level = False,              # specify if the dependent variable is at level (true) or log-returns (false)
-                      trend = False,              # specify if trend variable is to be included
-                      intercept = False,          # specify if intercept is to be included
-                      ar = 2,                    # specify the autoregressive order
-                      decimal='.', delimiter=',',
-                      parse_dates=["Data"], date_format="%Y-%m-%d",
-                      index_col=0,
-                      data_ini=None,
-                      data_fim="2015-12-31")
+    # model = LoadModel(filePath = ".\\database\\filled\\monthly\\DOLARF_output.csv",
+    #                   variable = "Close_filled", # specify the dependent variable
+    #                   regimes = 2,               # specify the number of regimes
+    #                   level = False,              # specify if the dependent variable is at level (true) or log-returns (false)
+    #                   trend = False,              # specify if trend variable is to be included
+    #                   intercept = False,          # specify if intercept is to be included
+    #                   ar = 2,                    # specify the autoregressive order
+    #                   decimal='.', delimiter=',',
+    #                   parse_dates=["Data"], date_format="%Y-%m-%d",
+    #                   index_col=0,
+    #                   data_ini=None,
+    #                   data_fim="2015-12-31")
 
+    model = LoadModel(filePath = "./database/Validation dataset/Regime_2/resultados.csv",
+                    variable = "y", # specify the dependent variable
+                    Xvariable = ["x"], # specify the dependent variable
+                    regimes = 2,               # specify the number of regimes
+                    level = True,              # specify if the dependent variable is at level (true) or log-returns (false)
+                    trend = False,              # specify if trend variable is to be included
+                    intercept = True,          # specify if intercept is to be included
+                    ar = 0,                    # specify the autoregressive order
+                    decimal=',', delimiter=';' )
     
     
     # Create an estimator instance

@@ -162,6 +162,7 @@ class MarkovSwitchingModel:
                 raise ValueError(f"dates_label length ({len(dates_label)}) must match number of observations ({self.NumObservations}).")
             self.DatesLabel = dates_label
 
+        self._startValues = {"beta":self.Beta, "omega":self.Omega, "transitionMatrix":self.TransitionMatrix, "unconditional_state_probs":self.UnconditionalStateProbs}
         
 
     def GetResiduals(self):
@@ -293,10 +294,12 @@ class MarkovSwitchingModel:
         output += f"{'no. of observations':<22s}{self.NumObservations:6d}\n"
         output += f"Not.Imp.: Not Implemented\n"
         # ===== Information criteria =====
-        aic = -2 * self.GetLogLikelihood() / self.NumObservations
-        bic = 0
+        # aic = -2 * self.GetLogLikelihood() / self.NumObservations
+        # bic = 0
 
-        output += f"{'AIC':<18s}{aic:12.8f}  {'SC':<18s}{bic:12.8f}\n"
+        # output += f"{'AIC':<18s}{aic:12.8f}  {'SC':<18s}{bic:12.8f}\n"
+
+        output += f"Start Values : {self._startValues}\n"
         output += "=" * 88 + "\n"
         
         return output
