@@ -60,10 +60,6 @@ def Save_configuration(config : dict, file_path : str):
     with open(file_path, "w") as outfile:
         json.dump(config, outfile, indent=4)
     
-# # Load configuration from a JSON file
-# config_file_path = './config.json'  # Update this path as necessary
-# dic_files = load_configuration(config_file_path)
-
 def read_daily_database(config : dict) -> pd.DataFrame:
     """Read daily database from CSV file based on configuration dictionary"""
     
