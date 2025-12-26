@@ -23,6 +23,10 @@ class MarkovSwitchingModel:
             unconditional_state_probs (array-like, optional): Initial state probabilities.
         """
         
+        # Validate num_regimes: must be greater than 1
+        if num_regimes <= 1:
+            raise ValueError("Number of regimes must be greater than 1.")
+
         # Validate Y input: reject 2-column Y (multivariate not supported)
         if len(Y.shape) == 2 and Y.shape[1] >= 2:
             raise NotImplementedError("Method not implemented for two Y columns")
@@ -125,7 +129,14 @@ class MarkovSwitchingModel:
             self.TransitionMatrix = transitionMatrix
         else:
             # Default: equal transition probabilities between all regimes
-            self.TransitionMatrix = np.ones((self.NumRegimes, self.NumRegimes)) / self.NumRegimes
+            self.TransitionMatrix = np.zeros((self.NumRegimes, self.NumRegimes))
+            for i in range(self.NumRegimes):
+                for j in range(self.NumRegimes):
+                    if i == j:
+                        self.TransitionMatrix[i, j] = 0.9
+                    else:
+                        self.TransitionMatrix[i, j] = 0.1 / (self.NumRegimes - 1)
+
 
         # ===== Parameter names for reporting =====
         if param_names is None:
@@ -248,9 +259,14 @@ class MarkovSwitchingModel:
                 output += (
                     f"{name:<22s}"
                     f"{coef:12.7f} "
-                    f"{se:11.7f} "
-                    f"{tval:9.4f} "
-                    f"{pval:8.4f} {stars}\n"
+                    # f"{se:11.7f} "
+                    # f"{tval:9.4f} "
+                    # f"{pval:8.4f} {stars}\n"
+
+                    f"{"Not.Imp.":>11s}"
+                    f"{"Not.Imp.":>9s}"
+                    f"{"Not.Imp.":>8s}\n"
+
                 )
    
         output += "\n"
@@ -261,22 +277,21 @@ class MarkovSwitchingModel:
             output += (
                 f"{f'sigma(S = {r})':<16s}"
                 f"{self.Omega[0, r]**0.5:12.7f} "
-                f"{"NotImplemented"}\n"
+                f"{"Not.Imp."}\n"
             )
 
         # ===== Transition probs =====
         for j in range(self.NumRegimes):
             for i in range(self.NumRegimes):
-                output += (
-                    f"{f'p_{{{j}|{i}}}':<16s}"
-                    f"{self.TransitionMatrix[i, j]:12.7f} "
-                    f"{"NotImplemented"}\n"
+                output += (f"{f'p_{{{j}|{i}}}':<16s}"
+                        f"{self.TransitionMatrix[i, j]:12.7f} "
+                        f"{"Not.Imp."}\n"
                 )
 
         output += "\n"
         output += f"{'log-likelihood':<18s}{self.GetLogLikelihood():12.4f}\n"
         output += f"{'no. of observations':<22s}{self.NumObservations:6d}\n"
-
+        output += f"Not.Imp.: Not Implemented\n"
         # ===== Information criteria =====
         aic = -2 * self.GetLogLikelihood() / self.NumObservations
         bic = 0
