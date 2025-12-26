@@ -318,161 +318,135 @@ class MarkovSwitching_estimator:
                 print(f"Iteration {interationCounter}: Estimated LogLikelihood {cur_ll:.6f} with change {delta:9.6f} - {self.Model.LogLikeOx():.6e}")
             delta = abs(cur_ll - prev_ll)
             
-    
-
-def LoadModel(filePath):
+def LoadModel(filePath, 
+              variable, ar = 1, level = False, intercept = True, trend = True,
+              regimes = 2,
+              decimal='.', delimiter=',', parse_dates=['Data'], date_format="%Y-%m-%d",
+              index_col=None, data_ini = None, data_fim = None) -> MKM.MarkovSwitchingModel:
     """
-    Loads the Markov Switching Model from a CSV file.
+    Loads and preprocesses data from a CSV file to create a Markov Switching Model.
+    
+    This function handles data loading, variable transformation (level vs log-returns),
+    lag construction for autoregressive modeling, and initial parameter generation.
 
     Parameters:
         filePath (str): Path to the CSV file containing the data.
+        variable (str): Name of the dependent variable column in the CSV.
+        ar (int): Autoregressive order (number of lags to include). Default: 1
+        level (bool): If True, use variable at level; if False, compute log-returns. Default: False
+        intercept (bool): If True, include intercept (constant term) in X. Default: True
+        trend (bool): If True, include trend variable in X. Default: True
+        regimes (int): Number of regimes in the Markov Switching Model. Default: 2
+        decimal (str): Decimal separator in CSV file. Default: '.'
+        delimiter (str): Column delimiter in CSV file. Default: ','
+        parse_dates (list): List of column names to parse as dates. Default: ['Data']
+        date_format (str): Format string for date parsing. Default: "%Y-%m-%d"
+        index_col (int/str): Column to use as index (datetime index). Default: None
+        data_ini (str): Start date for filtering data in format matching date_format. Default: None
+        data_fim (str): End date for filtering data in format matching date_format. Default: None
 
     Returns:
-        model (MKM.MarkovSwitchingModel): An instance of the Markov Switching Model.
+        model (MKM.MarkovSwitchingModel): An instance of the Markov Switching Model initialized with 
+                                         preprocessed data and random initial parameters.
     """
-    # Read a CSV file
-    # df = pd.read_csv(filePath)
-    # df = pd.read_csv("./database/resultados.csv", decimal=',', sep=';')
-    df = pd.read_csv("c:\\Users\\bteba\\Downloads\\dadosregimes3.csv", decimal=',', sep=';')
-
-    # Extract dependent and independent variables
-    # Y = df['Var1'].to_numpy().reshape((-1, 1))  # Dependent variable
+     
+    # ===== LOAD DATA FROM CSV FILE =====
+    # Read the CSV file with specified formatting parameters
+    # delimiter: character used to separate columns (comma, semicolon, etc.)
+    # decimal: character used as decimal separator (period or comma)
+    # header=0: use first row as column names
+    # parse_dates: convert specified columns to datetime format
+    # date_format: specify the format of date strings for proper parsing
+    # index_col: set specified column as the DataFrame index (useful for time series)
+    df = pd.read_csv(filePath,
+                     delimiter=delimiter,
+                     decimal=decimal,
+                     header=0,
+                     parse_dates=parse_dates,
+                     date_format=date_format,
+                     index_col=index_col)
     
-    # Y = np.log(df['Close_filled'].to_numpy().reshape((-1, 1)))  # Dependent variable
-    Y = df['Y'].to_numpy().reshape((-1, 1))  # Dependent variable
-    
+    # Check if 'Y' column exists and rename it to avoid conflicts
+    if ('Y' in df.columns) and (variable == 'Y'):
+        df = df.rename(columns={'Y': 'Y_original'})
+        variable = 'Y_original'
 
-    # X = df[['Var2', 'Var3']].to_numpy().reshape((-1, 2))  # Independent variables
-
-    # Create a lagged version of the dependent variable Y
-    # X = np.column_stack([np.ones(Y.shape[0]), df['x'].to_numpy()])
-    X = np.column_stack([df['X'].to_numpy(), df['Y1'].to_numpy()])
-    # X[0,1] = np.nan  # Set the first value to NaN since it has no lagged value
-    
-    # Y = Y[2:, ]#.to_numpy().reshape((-1, 1))  # Remove the first row with NaN        
-    # X = X[2:, ]#.to_numpy().reshape((-1, 2)) 
-
-    # Combine the original and lagged dependent variable into the independent variables
-
-    B = np.array([[1, 2, 3], [0.9, 0.5, 0.2]])  # Initial beta values
-
-    # Create an instance of the Markov Switching Model
-    model = MKM.MarkovSwitchingModel(Y, X, num_regimes=3, beta=B)
-
-    return model
-
-def LoadModel_IBOV(level = True, intercept = True, trend = True):
-    df = pd.read_csv(".\\database\\filled\\IBOV_filled.csv", decimal='.', sep=',')
-
-    
+    # if the data is to be extract ate the level construct the dependent variable directly
+    # otherwise, compute log-returns
     if level:
-        # Dependent variable
-        df['Close_filled_1'] = df['Close_filled'].shift(1)
+        df['Y'] = df[variable]
+    else:
+        df['Y'] = np.log(df[variable] / df[variable].shift(1))
+        
+        #  Remove the first row which contains NaN due to the log-return calculation
         df = df.iloc[1:, :]
 
-        Y = df['Close_filled'].to_numpy().reshape((-1, 1)) 
-        X = df['Close_filled_1'].to_numpy()
-
-    else :
-        # Extract dependent and independent variables
-        df['log_return'] = np.log(df['Close_filled'] / df['Close_filled'].shift(1))
-        df['log_return_1'] = df['log_return'].shift(1)
-        df = df.iloc[2:, :]
-
-        Y = df['log_return'].to_numpy().reshape((-1, 1))  # Dependent variable
-        X = df['log_return_1'].to_numpy()
-        np.column_stack([np.ones(Y.shape[0]), df['log_return2'].to_numpy()])
-
+    # ===== Construct lags =====
+    for lag in range(1, ar + 1):
+        df[f"Y_lag_{lag}"] = df[variable].shift(lag)
     
-        trend = np.arange(Y.shape[0])
-        intercept = np.ones(Y.shape[0])
+    # Remove the rows which contains NaN due to the lag operation
+    df = df.iloc[ar:, :]
 
-        # Create an instance of the Markov Switching Model
-        param_names = {'Y':'Close_filled', 'X':['Intercept', 'Trend', 'Lagged_Close']}
-        
-        if trend :
-            X = np.column_stack([trend, X])
+    # ===== Filter the database on the desired range =====
+    if data_ini is not None or data_fim is not None:
+        if index_col is not None:
+            df = df.loc[data_ini: data_fim]
         else:
-            param_names['X'].remove('Trend')
+            raise ValueError("data_ini or data_fim specified but no index column provided. please provide an index column.")
+   
+    # ===== Extract Y and X from the database =====
+    Y = df['Y'].to_numpy().reshape((-1, 1))
 
-
-        if intercept :
-            X = np.column_stack([intercept, X])
-        else:
-            param_names['X'].remove('Intercept')
-
-    # initialize transition matrix with user input
-    num_regimes = 3
-    TransProb = np.zeros((num_regimes, num_regimes))
-    
-    for i in range(num_regimes):
-        for j in range(num_regimes):
-            if i == j:
-                TransProb[i, j] = 0.9
-            else:
-                TransProb[i, j] = 0.1/(num_regimes - 1)
-     
-    # B = np.array([[0.01, 0.02, 0.03], [0.1, 0.7, 0.1], [0.3, 0.1, 0.2]])  # Initial beta values
-    B = np.array([[0.25752, 0.069911, 0.13291],
-                  [2.3547e-03, 2.8407e-03, 2.0194e-03],
-                  [0.97664, 0.99355, 0.98788]])
-
-    Om = np.array([[0.017421**2, 0.017353**2, 0.010883**2]])  # Initial omega values
-
-    model = MKM.MarkovSwitchingModel(Y, X, num_regimes=3, beta=B, param_names=param_names, transitionMatrix=TransProb, omega=Om)
-
-    return model
-
-def LoadModel_Dolar():
-    # Load CSV file containing monthly USD exchange rate data
-    # decimal='.' specifies that periods are used for decimal separation
-    # sep=',' specifies comma as the column delimiter
-    df = pd.read_csv(".\\database\\DOLARF_mensal_ultimo_dia.csv", decimal='.', sep=',')
-
-    # Create a lagged version of the dependent variable (Close-Level shifted by 1 period)
-    # This lagged value will be used as an independent variable for autoregressive modeling
-    df['lag_Close_Level'] = df['Close-Level'].shift(1)
-    
-    # Remove the first row which contains NaN due to the lag operation
-    df = df.iloc[1:, :]
-    
-    # Extract the dependent variable Y (Close-Level) and reshape to column vector
-    # reshape((-1, 1)) converts it from 1D array to 2D column vector for matrix operations
-    Y = df['Close-Level'].to_numpy().reshape((-1, 1))
-    
-    # Parse the date column (first column) and convert to datetime format
-    # format="%Y(%m)" indicates the date format is year followed by month in parentheses
-    dt = pd.to_datetime(df.iloc[:,0], format="%Y(%m)")
-    
     # Create a trend variable (linear time index from 0 to T-1)
     # Note: This variable is currently unused in the model specification below
-    trend = np.arange(Y.shape[0])
+    data_trend = np.arange(Y.shape[0])
     
     # Create an intercept column (vector of ones) for the constant term in the regression
-    intercept = np.ones(Y.shape[0])
-    
-    # Build the independent variable matrix X by horizontally stacking the intercept and lagged dependent variable
-    # X has dimensions (T x 2): first column is the constant, second column is lagged Close-Level
-    X = np.column_stack([intercept, df['lag_Close_Level'].to_numpy()])
+    data_intercept = np.ones(Y.shape[0])
     
     # Create an instance of the Markov Switching Model
-    param_names = {'Y':'Close_filled', 'X':['Intercept', 'Lagged_Close']}
+    param_names = {'Y':'Close_filled', 'X':['Intercept', 'Trend'] + [f'Lag_{i}' for i in range(1, ar + 1)]}
+ 
+    # add intercept and trend if specified
+    X = np.empty((Y.shape[0], 0))  # Initialize X as an empty array
+    if trend :
+        X = np.column_stack([X, data_trend])
+    else:
+        param_names['X'].remove('Trend')
+ 
+    if intercept :
+        X = np.column_stack([X, data_intercept])
+    else:
+        param_names['X'].remove('Intercept')
 
-    TransProb = np.array([[0.950, 0.030, 0.020],
-                          [0.025, 0.950, 0.025],
-                          [0.040, 0.010, 0.950]])
+    # Build the independent variable matrix X by horizontally stacking the intercept and lagged dependent variable
+    # X has dimensions (T x 2): first column is the constant, second column is lagged Close-Level
+    for lag in range(1, ar + 1):
+        X = np.column_stack([X, df[f'Y_lag_{lag}'].to_numpy()])
     
-    # B = np.array([[0.01, 0.02, 0.03], [0.1, 0.7, 0.1], [0.3, 0.1, 0.2]])  # Initial beta values
-    B = np.array([[0.25752, 0.069911, 0.13291],
-                #   [2.3547e-03, 2.8407e-03, 2.0194e-03],
-                  [0.8, 0.9, 0.85]])
+    
+    # make a random selection of initial beta values for the lags
+    Beta_initial = np.zeros((0, regimes))
+    for k in range(X.shape[1]):
+        random_values = np.random.uniform(-0.5, 0.5, size=regimes)
+        Beta_initial = np.vstack([Beta_initial, random_values])
+    
+    # ===== Initial beta values =====
+    # Beta_initial = np.array([[0.25752, 0.069911, 0.13291],
+    #             #   [2.3547e-03, 2.8407e-03, 2.0194e-03],
+    #               [0.8, 0.9, 0.85]])
+    # np.random.uniform(-0.5, 0.5, size=regimes)
 
-    Om = np.array([[0.02**2, 0.015**2, 0.010**2]])  # Initial omega values
+    # Omega_initial = np.array([[0.02**2, 0.015**2, 0.010**2]])  # Initial omega values``
 
-    model = MKM.MarkovSwitchingModel(Y, X, num_regimes=3, beta=B, param_names=param_names, transitionMatrix=TransProb, omega=Om, dates_label=dt)
+    model = MKM.MarkovSwitchingModel(Y, X, num_regimes=regimes,
+                                    beta=Beta_initial, 
+                                    #  omega=Omega_initial, 
+                                     param_names=param_names,
+                                     dates_label=df.index)
 
     return model
-
 
 def GenerateSmoothProbabilitiesPlot(model: MKM.MarkovSwitchingModel) -> None:
     """
@@ -511,20 +485,44 @@ def GenerateSmoothProbabilitiesPlot(model: MKM.MarkovSwitchingModel) -> None:
 
     # Save the figure to a PNG file with high resolution (300 DPI)
     # bbox_inches='tight' ensures no content is cut off at the figure edges
-    plt.savefig(f"markov_switching_plot_{datetime.today().strftime('%Y-%m-%d')}.png", dpi=300, bbox_inches='tight')
-    
+    plt.savefig(f"markov_switching_plot_{datetime.today().strftime('%Y-%m-%d %H-%M-%S')}.png", dpi=300, bbox_inches='tight')
 
-
-if __name__ == "__main__":
+if __name__ == "__main__" :
     # Load the model from a CSV file
-    model = LoadModel_Dolar()
+    
+    # model = LoadModel(filePath = "./database/Validation dataset/teste com 3 regimes.csv",
+    #                   variable = "Y",
+    #                   regimes=3,
+    #                   trend=False,
+    #                   level = True,
+    #                   intercept = True,
+    #                   ar = 5,
+    #                   decimal=',', delimiter=';', parse_dates=None, date_format=None)
+    
+    model = LoadModel(filePath = ".\\database\\filled\\monthly\\DOLARF_output.csv",
+                      variable = "Close_filled", # specify the dependent variable
+                      regimes = 2,               # specify the number of regimes
+                      level = False,              # specify if the dependent variable is at level (true) or log-returns (false)
+                      trend = False,              # specify if trend variable is to be included
+                      intercept = False,          # specify if intercept is to be included
+                      ar = 2,                    # specify the autoregressive order
+                      decimal='.', delimiter=',',
+                      parse_dates=["Data"], date_format="%Y-%m-%d",
+                      index_col=0,
+                      data_ini=None,
+                      data_fim="2015-12-31")
+
+    
     
     # Create an estimator instance
     ModelEstimator = MarkovSwitching_estimator(model)
     
-    ModelEstimator.Fit(traceLevel=1, precision=1e-7)
+    ModelEstimator.Fit(traceLevel=1)
     
+    with open(f"{datetime.today().strftime('%Y-%m-%d %H-%M-%S')}_Console (Maddalena).txt", 'w', encoding='utf-8') as fileStream:
+        print(ModelEstimator.Model, file=fileStream)
     print(ModelEstimator.Model)
-    
+
+
     GenerateSmoothProbabilitiesPlot(ModelEstimator.Model)
     print("Finished Estimation")
