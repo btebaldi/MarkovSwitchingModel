@@ -1,5 +1,6 @@
 import numpy as np
-
+from datetime import datetime
+import scipy.stats as stats
 class MarkovSwitchingModel:
     """
     A class to represent time series data and regime-switching model parameters.
@@ -8,7 +9,7 @@ class MarkovSwitchingModel:
     """
 
     def __init__(self, Y, X, num_regimes, beta=None, omega=None,
-                  transitionMatrix=None, unconditional_state_probs=None):
+                  transitionMatrix=None, unconditional_state_probs=None, param_names = None):
         """
         Initialize a MarkovSwitchingModel instance with data and parameters.
 
@@ -119,6 +120,20 @@ class MarkovSwitchingModel:
             # Default: equal transition probabilities between all regimes
             self.TransitionMatrix = np.ones((self.NumRegimes, self.NumRegimes)) / self.NumRegimes
 
+        # ===== Parameter names for reporting =====
+        if param_names is None:
+            self.ParamNames = {"Y" : "Dependent Variable", "X" : [f"X{i}" for i in range(self.NumXVariables)]}
+            # self.ParamNames = [f"X{i}" for i in range(self.NumXVariables)]
+        else:
+            if "Y" not in param_names:
+                raise ValueError("param_names must contain the key 'Y'.")
+            if "X" not in param_names:
+                raise ValueError("param_names must contain the key 'Y'.")
+            else:
+                if not isinstance(param_names["X"], list) or len(param_names["X"]) != self.NumXVariables:
+                    raise ValueError("param_names['X'] must be a list with exactly 5 elements.")
+            self.ParamNames = param_names
+
     def GetResiduals(self):
         """
         Calculate and return residuals from the model.
@@ -164,3 +179,128 @@ class MarkovSwitchingModel:
         for regime in range(self.NumRegimes):
             loglikelihood += np.sum(np.log(self.UnconditionalStateProbs[regime]) * self.Xi_smoothed[:, regime])
         return loglikelihood
+    
+    def EstimateResidualVariance(self) -> float:
+        residual_variance = self.GetSSE() / (self.NumObservations)
+        return residual_variance
+
+    def __str__(self):
+        return self.Summary()
+
+    def Summary(self):
+        """
+        Generate a summary report of the Markov Switching Model results.
+        
+        Returns:
+            str: Formatted summary string containing model statistics and coefficients.
+        """
+        output = ""
+        output += "=" * 88 + "\n"
+        output += f"MarkovSwitching({self.NumRegimes} regimes) Modelling {self.ParamNames['Y']}\n"
+        output += f"\nSummary of Results\n"
+        output += f"{'Date:':<22s}{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n"
+        output += f"{'No. of observations:':<22s}{self.NumObservations}\n"
+        output += f"{'log-likelihood:':<22s}{self.GetLogLikelihood():.4f}\n"
+        output += f"{'Varriance:':<22s}{self.EstimateResidualVariance()}\n"
+        output += "=" * 88 + "\n"
+        output += "\n"
+        output += f"{'':22s}{'Coefficient':>12s} {'Std.Error':>11s} {'t-value':>9s} {'t-prob':>8s}\n"
+
+        betaVariances = self.joe()
+
+        # ===== Coefficients =====
+        for i in range(self.NumXVariables):
+            for r in range(self.NumRegimes):
+                coef = self.Beta[i, r]
+                se   = betaVariances[i, r] ** 0.5
+                tval = coef / se
+                pval = 2 * (1 - stats.t.cdf(abs(tval), df=self.NumObservations - self.NumXVariables))
+                
+                stars = ""
+                if pval < 0.01:
+                    stars = "***"
+                elif pval < 0.05:
+                    stars = "**"
+                elif pval < 0.10:
+                    stars = "*"
+
+                name = f"{self.ParamNames['X'][i]}(S = {r})"
+                output += (
+                    f"{name:<22s}"
+                    f"{coef:12.7f} "
+                    f"{se:11.7f} "
+                    f"{tval:9.4f} "
+                    f"{pval:8.4f} {stars}\n"
+                )
+   
+        output += "\n"
+        output += f"{'':16s}{'Coefficient':>12s} {'Std.Error':>14s}\n"
+
+        # ===== Sigma =====
+        for r in range(self.NumRegimes):
+            output += (
+                f"{f'sigma(S = {r})':<16s}"
+                f"{self.Omega[0, r]**0.5:12.7f} "
+                f"{"NotImplemented"}\n"
+            )
+
+        # ===== Transition probs =====
+        for j in range(self.NumRegimes):
+            for i in range(self.NumRegimes):
+                output += (
+                    f"{f'p_{{{j}|{i}}}':<16s}"
+                    f"{self.TransitionMatrix[i, j]:12.7f} "
+                    f"{"NotImplemented"}\n"
+                )
+
+        output += "\n"
+        output += f"{'log-likelihood':<18s}{self.GetLogLikelihood():12.4f}\n"
+        output += f"{'no. of observations':<22s}{self.NumObservations:6d}\n"
+
+        # ===== Information criteria =====
+        aic = -2 * self.GetLogLikelihood() / self.NumObservations
+        bic = 0
+
+        output += f"{'AIC':<18s}{aic:12.8f}  {'SC':<18s}{bic:12.8f}\n"
+        output += "=" * 88 + "\n"
+        
+        return output
+
+
+
+    def joe(self):
+
+        Var_Betas_estimated = np.zeros((self.NumXVariables, 0))
+
+        # For each regime, run OLS to estimate the regression
+        for regime_number in range(self.NumRegimes):
+            # Check dimensions of Omega
+            # Create weights based on smoothed probabilities
+            Weights_Matrix = np.diag(self.Xi_smoothed[:, regime_number])
+
+            # Calculate the design matrix
+            A = (self.X.T @ Weights_Matrix @ self.X) 
+
+            try:
+                # Inverse of the design matrix
+                A_inv = np.linalg.inv(A) 
+            except np.linalg.LinAlgError:
+                # Use pseudo-inverse if singular
+                A_inv = np.linalg.pinv(A)
+
+            # Calculate Betas
+            B = np.diag(A_inv * self.EstimateResidualVariance()) 
+
+            # Stack the estimated Betas for each regime
+            Var_Betas_estimated = np.column_stack([Var_Betas_estimated, B])
+        
+        return Var_Betas_estimated
+    
+    def LogLikeOx (self):
+
+        likelihood = self.Eta @ self.UnconditionalStateProbs.reshape((-1, 1))
+        
+        # likelihood = np.sum(residual, axis=1)
+        
+        loglikelihood = sum(np.log(likelihood))
+        return loglikelihood.item()
