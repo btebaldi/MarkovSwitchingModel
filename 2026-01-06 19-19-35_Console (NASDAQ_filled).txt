@@ -1,0 +1,45 @@
+========================================================================================
+NASDAQ_filled
+
+MarkovSwitching(3 regimes) Modelling Close_filled
+
+Summary of Results
+Date of estimation:   2026-01-06 19:19:35
+No. of observations:  5218
+Date range:           2005-11-22 00:00:00 to 2025-11-20 00:00:00
+log-likelihood:       16050.2762
+========================================================================================
+
+                       Coefficient   Std.Error   t-value   t-prob
+Intercept(S = 0)        -0.0008275    Not.Imp. Not.Imp.Not.Imp.
+Intercept(S = 1)        -0.0132306    Not.Imp. Not.Imp.Not.Imp.
+Intercept(S = 2)         0.0019069    Not.Imp. Not.Imp.Not.Imp.
+Lag_1(S = 0)            -0.0864624    Not.Imp. Not.Imp.Not.Imp.
+Lag_1(S = 1)            -0.6678332    Not.Imp. Not.Imp.Not.Imp.
+Lag_1(S = 2)            -0.0239987    Not.Imp. Not.Imp.Not.Imp.
+
+                 Coefficient      Std.Error
+sigma(S = 0)       0.0217008 Not.Imp.
+sigma(S = 1)       0.0128046 Not.Imp.
+sigma(S = 2)       0.0075845 Not.Imp.
+p_{0|0}            0.9730714 Not.Imp.
+p_{0|1}            0.0980375 Not.Imp.
+p_{0|2}            0.0000000 Not.Imp.
+p_{1|0}            0.0021956 Not.Imp.
+p_{1|1}            0.5177702 Not.Imp.
+p_{1|2}            0.0472534 Not.Imp.
+p_{2|0}            0.0246216 Not.Imp.
+p_{2|1}            0.3843586 Not.Imp.
+p_{2|2}            0.9527699 Not.Imp.
+
+
+pi(S = 0)          0.2452864 
+pi(S = 1)          0.0682306 
+pi(S = 2)          0.6864830 
+
+Start Values : {'beta': array([[-0.0002,  0.0003,  0.0023],
+       [ 0.11  ,  0.1   , -0.08  ]]), 'omega': array([[0.16, 0.81, 0.04]]), 'transitionMatrix': array([[0.9 , 0.05, 0.05],
+       [0.05, 0.9 , 0.05],
+       [0.05, 0.05, 0.9 ]]), 'unconditional_state_probs': array([0.33333333, 0.33333333, 0.33333333])}
+========================================================================================
+
