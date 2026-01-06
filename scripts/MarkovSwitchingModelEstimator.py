@@ -340,7 +340,7 @@ class MarkovSwitching_estimator:
             if traceLevel > 0:
                 # print(f"Iteration {interationCounter}: Estimated LogLikelihood {cur_ll:.6f} with change {delta:9.6f} - {self.Model.LogLikeOx():.6e}({delta2:9.6f}){' Warning: model is diverging. Log-Likelihood decreased.' if delta < 0 else ''}")
                 print(f"Iteration {interationCounter}: Estimated LogLikelihood {cur_ll:.6f} with change {delta:9.6f}{' Warning: model is diverging. Log-Likelihood decreased.' if delta < 0 else ''}")
-            delta = abs(cur_ll - prev_ll)
+            delta = (cur_ll - prev_ll)
             
 def LoadModel(filePath, 
               variable, Xvariable = None, ar = 1, level = False, intercept = True, trend = True,
@@ -558,7 +558,7 @@ if __name__ == "__main__" :
         
         ModelEstimator.Fit(traceLevel=1)
         
-        with open(f"{datetime.today().strftime('%Y-%m-%d %H-%M-%S')}_Console (Maddalena).txt", 'w', encoding='utf-8') as fileStream:
+        with open(f"{datetime.today().strftime('%Y-%m-%d %H-%M-%S')}_Console ({ModelEstimator.Model.ModelName}).txt", 'w', encoding='utf-8') as fileStream:
             print(ModelEstimator.Model, file=fileStream)
         print(ModelEstimator.Model)
 
