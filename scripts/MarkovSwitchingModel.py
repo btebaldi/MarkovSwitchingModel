@@ -9,7 +9,7 @@ class MarkovSwitchingModel:
     """
 
     def __init__(self, Y, X, num_regimes, beta=None, omega=None,
-                  transitionMatrix=None, unconditional_state_probs=None, param_names = None, dates_label=None):
+                  transitionMatrix=None, unconditional_state_probs=None, param_names = None, dates_label=None, model_name=None):
         """
         Initialize a MarkovSwitchingModel instance with data and parameters.
 
@@ -71,7 +71,8 @@ class MarkovSwitchingModel:
         else:
             # Default: initialize all coefficients to zero
             # Assumes X already includes a constant term as first column
-            self.Beta = np.zeros((self.NumXVariables, self.NumRegimes))
+            # self.Beta = np.zeros((self.NumXVariables, self.NumRegimes))
+            self.Beta = np.random.randn(self.NumXVariables, self.NumRegimes)/100
         
         # ===== Initialize Omega (regime-specific variance/scale) =====
         if omega is not None:
@@ -90,7 +91,7 @@ class MarkovSwitchingModel:
             self.Omega = omega
         else:
             # Default: initialize to ones for all regimes
-            self.Omega = np.ones((1, self.NumRegimes))
+            self.Omega = np.ones((1, self.NumRegimes)) + (np.random.randn(1, self.NumRegimes)/10)
 
         # ===== Initialize state probability matrices =====
         # Eta: filtered conditional probability of being in each regime per observation
@@ -164,6 +165,10 @@ class MarkovSwitchingModel:
 
         self._startValues = {"beta":self.Beta, "omega":self.Omega, "transitionMatrix":self.TransitionMatrix, "unconditional_state_probs":self.UnconditionalStateProbs}
         
+        if model_name is None:
+            self.ModelName = "Untitled Markov Switching Model"
+        else:
+            self.ModelName = model_name
 
     def GetResiduals(self):
         """
@@ -196,20 +201,20 @@ class MarkovSwitchingModel:
         
         return SSE
 
-    def GetLogLikelihood(self) -> float:
-        """
-        Calculate the log-likelihood of the model given current parameters.
+    # def GetLogLikelihood(self) -> float:
+    #     """
+    #     Calculate the log-likelihood of the model given current parameters.
         
-        The likelihood combines the SSE with state probabilities weighted by
-        the smoothed regime probabilities across all observations.
+    #     The likelihood combines the SSE with state probabilities weighted by
+    #     the smoothed regime probabilities across all observations.
 
-        Returns:
-            float: The log-likelihood value for the current model parameters.
-        """
-        loglikelihood = -self.GetSSE()
-        for regime in range(self.NumRegimes):
-            loglikelihood += np.sum(np.log(self.UnconditionalStateProbs[regime]) * self.Xi_smoothed[:, regime])
-        return loglikelihood
+    #     Returns:
+    #         float: The log-likelihood value for the current model parameters.
+    #     """
+    #     loglikelihood = -self.GetSSE()
+    #     for regime in range(self.NumRegimes):
+    #         loglikelihood += np.sum(np.log(self.UnconditionalStateProbs[regime]) * self.Xi_smoothed[:, regime])
+    #     return loglikelihood
     
     def EstimateResidualVariance(self) -> float:
         residual_variance = self.GetSSE() / (self.NumObservations)
@@ -227,18 +232,21 @@ class MarkovSwitchingModel:
         """
         output = ""
         output += "=" * 88 + "\n"
+        output += f"{self.ModelName}\n\n"
+
         output += f"MarkovSwitching({self.NumRegimes} regimes) Modelling {self.ParamNames['Y']}\n"
         output += f"\nSummary of Results\n"
-        output += f"{'Date:':<22s}{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n"
+        output += f"{'Date of estimation:':<22s}{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n"
         output += f"{'No. of observations:':<22s}{self.NumObservations}\n"
-        output += f"{'log-likelihood (Cavicchioli):':<22s}{self.GetLogLikelihood():.4f}\n"
-        output += f"{'log-likelihood (Doornik):':<22s}{self.LogLikeOx():.4f}\n"
-        output += f"{'Varriance:':<22s}{self.EstimateResidualVariance()}\n"
+        output += f"{'Date range:':<22s}{self.DatesLabel[0]} to {self.DatesLabel[-1]}\n"
+        output += f"{'log-likelihood:':<22s}{self.GetLogLikelihood():.4f}\n"
+        # output += f"{'log-likelihood (Doornik):':<22s}{self.LogLikeOx():.4f}\n"
+        # output += f"{'Varriance:':<22s}{self.EstimateResidualVariance()}\n"
         output += "=" * 88 + "\n"
         output += "\n"
         output += f"{'':22s}{'Coefficient':>12s} {'Std.Error':>11s} {'t-value':>9s} {'t-prob':>8s}\n"
 
-        betaVariances = self.joe()
+        betaVariances = self.GetBetaVariance()
 
         # ===== Coefficients =====
         for i in range(self.NumXVariables):
@@ -289,10 +297,16 @@ class MarkovSwitchingModel:
                         f"{"Not.Imp."}\n"
                 )
 
+
+        # ===== Unconditional Probabilities =====
+        output += "\n\n"
+        for r in range(self.NumRegimes):
+            output += (
+                f"{f'pi(S = {r})':<16s}"
+                f"{self.UnconditionalStateProbs[r]:12.7f} \n"
+            )
+
         output += "\n"
-        output += f"{'log-likelihood':<18s}{self.GetLogLikelihood():12.4f}\n"
-        output += f"{'no. of observations':<22s}{self.NumObservations:6d}\n"
-        output += f"Not.Imp.: Not Implemented\n"
         # ===== Information criteria =====
         # aic = -2 * self.GetLogLikelihood() / self.NumObservations
         # bic = 0
@@ -306,7 +320,7 @@ class MarkovSwitchingModel:
 
 
 
-    def joe(self):
+    def GetBetaVariance(self):
 
         Var_Betas_estimated = np.zeros((self.NumXVariables, 0))
 
@@ -334,10 +348,19 @@ class MarkovSwitchingModel:
         
         return Var_Betas_estimated
     
-    def LogLikeOx (self):
+    def GetLogLikelihood(self):
+        """
+        Calculate the log-likelihood of the model given current parameters.
+        
+        The likelihood combines the SSE with state probabilities weighted by
+        the smoothed regime probabilities across all observations.
 
+        Returns:
+            float: The log-likelihood value for the current model parameters.
+        """
 
-        myLaggedXi_filtered = self.Xi_filtered.copy()
+        # myLaggedXi_filtered = self.Xi_filtered.copy()
+        myLaggedXi_filtered = self.Xi_t1_filtered.copy()
         myLaggedXi_filtered = np.roll(myLaggedXi_filtered, 1, axis=0)
         myLaggedXi_filtered[0,:] = self.UnconditionalStateProbs
         

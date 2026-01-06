@@ -5,6 +5,27 @@ import scipy.stats as stats
 import MarkovSwitchingModel as MKM
 import matplotlib.pyplot as plt
 from datetime import datetime
+import pathlib as plib
+
+class ParameterGuess:
+    """
+    Class to generate initial guesses for the parameters of a Markov Switching Model.
+    """
+
+    def __init__(self) -> None:
+        self.Beta = None
+        self.Omega = None
+        self.TransitionMatrix = None
+        self.UnconditionalStateProbability = None
+
+    def GetParameters(self):
+        """
+        Returns the initial parameter guesses.
+
+        Returns:
+            Tuple: A tuple containing Beta, Omega, TransitionMatrix, and UnconditionalStateProbability.
+        """
+        return self.Beta, self.Omega, self.TransitionMatrix, self.UnconditionalStateProbability
 
 class MarkovSwitching_estimator: 
 
@@ -279,6 +300,7 @@ class MarkovSwitching_estimator:
             # Store previous parameters for convergence check
             if interationCounter == 1:
                 prev_ll = float('-inf')
+                # prev_ll_Ox = float('-inf')
             else:
                 prev_ll = self.Model.GetLogLikelihood()
             
@@ -314,15 +336,18 @@ class MarkovSwitching_estimator:
             # Calculate convergence error
             cur_ll = self.Model.GetLogLikelihood()
             delta = cur_ll - prev_ll
+
             if traceLevel > 0:
-                print(f"Iteration {interationCounter}: Estimated LogLikelihood {cur_ll:.6f} with change {delta:9.6f} - {self.Model.LogLikeOx():.6e}{' Warning: model is diverging. Log-Likelihood decreased.' if delta < 0 else ''}")
+                # print(f"Iteration {interationCounter}: Estimated LogLikelihood {cur_ll:.6f} with change {delta:9.6f} - {self.Model.LogLikeOx():.6e}({delta2:9.6f}){' Warning: model is diverging. Log-Likelihood decreased.' if delta < 0 else ''}")
+                print(f"Iteration {interationCounter}: Estimated LogLikelihood {cur_ll:.6f} with change {delta:9.6f}{' Warning: model is diverging. Log-Likelihood decreased.' if delta < 0 else ''}")
             delta = abs(cur_ll - prev_ll)
             
 def LoadModel(filePath, 
               variable, Xvariable = None, ar = 1, level = False, intercept = True, trend = True,
               regimes = 2,
               decimal='.', delimiter=',', parse_dates=None, date_format="%Y-%m-%d",
-              index_col=None, data_ini = None, data_fim = None) -> MKM.MarkovSwitchingModel:
+              index_col=None, data_ini = None, data_fim = None,
+              initial_guess=None) -> MKM.MarkovSwitchingModel:
     """
     Loads and preprocesses data from a CSV file to create a Markov Switching Model.
     
@@ -350,6 +375,8 @@ def LoadModel(filePath,
                                          preprocessed data and random initial parameters.
     """
      
+    filePath = plib.Path(filePath)
+
     # ===== LOAD DATA FROM CSV FILE =====
     # Read the CSV file with specified formatting parameters
     # delimiter: character used to separate columns (comma, semicolon, etc.)
@@ -383,7 +410,7 @@ def LoadModel(filePath,
 
     # ===== Construct lags =====
     for lag in range(1, ar + 1):
-        df[f"Y_lag_{lag}"] = df[variable].shift(lag)
+        df[f"Y_lag_{lag}"] = df["Y"].shift(lag)
     
     # Remove the rows which contains NaN due to the lag operation
     df = df.iloc[ar:, :]
@@ -432,25 +459,16 @@ def LoadModel(filePath,
     for lag in range(1, ar + 1):
         X = np.column_stack([X, df[f'Y_lag_{lag}'].to_numpy()])
     
+    if initial_guess is None:
+        # ===== Generate initial parameter guesses =====
+        initial_guess = ParameterGuess()
     
-    # make a random selection of initial beta values for the lags
-    Beta_initial = np.zeros((0, regimes))
-    for k in range(X.shape[1]):
-        random_values = np.random.uniform(-0.5, 0.5, size=regimes)
-        Beta_initial = np.vstack([Beta_initial, random_values])
-    
-    # ===== Initial beta values =====
-    Beta_initial = np.array([[10, 60],
-                  [0.04, 0.05]])
-    # np.random.uniform(-0.5, 0.5, size=regimes)
-
-    Omega_initial = np.array([[50**2, 40**2]])  # Initial omega values``
-
     model = MKM.MarkovSwitchingModel(Y, X, num_regimes=regimes,
-                                    beta=Beta_initial, 
-                                     omega=Omega_initial, 
+                                    beta=initial_guess.Beta, 
+                                     omega=initial_guess.Omega, 
                                      param_names=param_names,
-                                     dates_label=df.index)
+                                     dates_label=df.index,
+                                     model_name=filePath.stem)
 
     return model
 
@@ -486,6 +504,9 @@ def GenerateSmoothProbabilitiesPlot(model: MKM.MarkovSwitchingModel) -> None:
         # Set the y-axis label to indicate which regime this subplot represents
         ax.set_ylabel(f"Regime {cur_mod}")
     
+    # Set the title for the entire figure
+    fig.suptitle(f'{model.ModelName} Smoothed Probabilities', fontsize=9)
+
     # Adjust the layout to prevent overlapping labels and titles
     fig.tight_layout()
 
@@ -504,40 +525,43 @@ if __name__ == "__main__" :
     #                   intercept = True,
     #                   ar = 5,
     #                   decimal=',', delimiter=';', parse_dates=None, date_format=None)
-    
-    # model = LoadModel(filePath = ".\\database\\filled\\monthly\\DOLARF_output.csv",
-    #                   variable = "Close_filled", # specify the dependent variable
-    #                   regimes = 2,               # specify the number of regimes
-    #                   level = False,              # specify if the dependent variable is at level (true) or log-returns (false)
-    #                   trend = False,              # specify if trend variable is to be included
-    #                   intercept = False,          # specify if intercept is to be included
-    #                   ar = 2,                    # specify the autoregressive order
-    #                   decimal='.', delimiter=',',
-    #                   parse_dates=["Data"], date_format="%Y-%m-%d",
-    #                   index_col=0,
-    #                   data_ini=None,
-    #                   data_fim="2015-12-31")
 
-    model = LoadModel(filePath = "./database/Validation dataset/Regime_2/resultados.csv",
-                    variable = "y", # specify the dependent variable
-                    Xvariable = ["x"], # specify the dependent variable
-                    regimes = 2,               # specify the number of regimes
-                    level = True,              # specify if the dependent variable is at level (true) or log-returns (false)
-                    trend = False,              # specify if trend variable is to be included
-                    intercept = True,          # specify if intercept is to be included
-                    ar = 0,                    # specify the autoregressive order
-                    decimal=',', delimiter=';' )
-    
-    
-    # Create an estimator instance
-    ModelEstimator = MarkovSwitching_estimator(model)
-    
-    ModelEstimator.Fit(traceLevel=1)
-    
-    with open(f"{datetime.today().strftime('%Y-%m-%d %H-%M-%S')}_Console (Maddalena).txt", 'w', encoding='utf-8') as fileStream:
-        print(ModelEstimator.Model, file=fileStream)
-    print(ModelEstimator.Model)
+    ParameterGuess_instance = ParameterGuess()
+    ParameterGuess_instance.Beta = np.array([[-0.0002, 0.0003,  0.0023],
+                                               [0.11, 0.10, -0.08]])
+    ParameterGuess_instance.Omega = np.array([[0.4**2, 0.9**2, 0.2**2]])
 
 
-    GenerateSmoothProbabilitiesPlot(ModelEstimator.Model)
+    list_paths = [".\\database\\filled\\DOLARF_filled.csv",
+                  ".\\database\\filled\\IBOV_filled.csv",   
+                   ".\\database\\filled\\NASDAQ_filled.csv",
+                   ".\\database\\filled\\SnP500_filled.csv"]
+
+    for path in list_paths:
+
+        model = LoadModel(filePath = path,
+                        variable = "Close_filled", # specify the dependent variable
+                        regimes = 3,               # specify the number of regimes
+                        level = False,              # specify if the dependent variable is at level (true) or log-returns (false)
+                        trend = False,              # specify if trend variable is to be included
+                        intercept = True,          # specify if intercept is to be included
+                        ar = 1,                    # specify the autoregressive order
+                        decimal='.', delimiter=',',
+                        parse_dates=["Data"], date_format="%Y-%m-%d",
+                        index_col=0,
+                        data_ini="2005-11-22",
+                        data_fim="2025-11-20",
+                        initial_guess=ParameterGuess_instance)
+        
+        # Create an estimator instance
+        ModelEstimator = MarkovSwitching_estimator(model)
+        
+        ModelEstimator.Fit(traceLevel=1)
+        
+        with open(f"{datetime.today().strftime('%Y-%m-%d %H-%M-%S')}_Console (Maddalena).txt", 'w', encoding='utf-8') as fileStream:
+            print(ModelEstimator.Model, file=fileStream)
+        print(ModelEstimator.Model)
+
+        GenerateSmoothProbabilitiesPlot(ModelEstimator.Model)
+
     print("Finished Estimation")

@@ -36,6 +36,7 @@ Functions:
 import pandas as pd
 import os
 import json
+from sklearn.preprocessing import StandardScaler
 
 def Load_configuration(file_path : str) -> dict:
     """Load configuration from a JSON file."""
@@ -98,7 +99,7 @@ def create_monthly_database(daily_df : pd.DataFrame, aggregation : dict) -> pd.D
     """Aggregate daily data to monthly frequency"""
 
     print("Creating monthly database.")
-    monthly_df = daily_df.resample('M').agg(aggregation)
+    monthly_df = daily_df.resample('ME').agg(aggregation)
     return monthly_df
 
 def save_database(df, filepath):
@@ -114,6 +115,15 @@ def save_database(df, filepath):
     df.to_csv(filepath)
     print(f"Saved: {filepath}")
 
+def DataPadronization(df: pd.DataFrame, target_column: list[str], sufix: str = "_std") -> pd.DataFrame:
+    """Padronization of the data using StandardScaler from sklearn"""  
+
+    for col in target_column:
+        scaler = StandardScaler()
+        sufix_col = col + sufix
+        df[sufix_col] = scaler.fit_transform(df[[col]]).ravel()
+    return df
+        
 if __name__ == "__main__":
     # Read daily data
     dic_files =  Load_configuration(file_path=None)
@@ -137,7 +147,10 @@ if __name__ == "__main__":
         # Create aggregations
         weekly_data = create_weekly_database(daily_data, aggregation = config['aggregation'])
         monthly_data = create_monthly_database(daily_data, aggregation = config['aggregation'])
-        
+
+        weekly_data = DataPadronization(df = weekly_data, target_column = list(config['aggregation'].keys()), sufix = "_std")
+        monthly_data = DataPadronization(df = monthly_data, target_column = config['aggregation'].keys(), sufix = "_std")
+
         # Check if save directory exists, create if not
         if not os.path.exists(config['saveFilePath']):
             os.makedirs(config['saveFilePath'])
