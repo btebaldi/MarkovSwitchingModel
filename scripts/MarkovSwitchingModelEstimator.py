@@ -148,12 +148,17 @@ class MarkovSwitching_estimator:
         for regime_from in range(self.Model.NumRegimes):
             for regime_to in range(self.Model.NumRegimes):
             
-                xxi = np.append(self.Model.Xi_smoothed[1:, regime_to], self.Model.Xi_filtered[-1, regime_to])
+                if regime_to == self.Model.NumRegimes - 1:
+                    # Normalize the row to ensure it sums to 1
+                    PP[regime_from, regime_to] = 1 - sum(PP[regime_from, range(self.Model.NumRegimes-1)])
+                else:
+                    xxi = np.append(self.Model.Xi_smoothed[1:, regime_to], self.Model.Xi_filtered[-1, regime_to])
 
-                PP_ij = sum((self.Model.Xi_filtered[ :, regime_from] /  self.Model.Xi_t1_filtered[ :, regime_to]) * xxi)                
-                Denominator = sum(self.Model.Xi_smoothed[ :, regime_from])
-                
-                PP[regime_from, regime_to] = self.Model.TransitionMatrix[regime_from, regime_to] * PP_ij/Denominator
+                    PP_ij = sum((self.Model.Xi_filtered[ :, regime_from] /  self.Model.Xi_t1_filtered[ :, regime_to]) * xxi)
+                    Denominator = sum(self.Model.Xi_smoothed[ :, regime_from])
+                    
+                    PP[regime_from, regime_to] = self.Model.TransitionMatrix[regime_from, regime_to] * PP_ij/Denominator
+
 
         # Update the transition matrix
         self.Model.TransitionMatrix = PP    
@@ -532,10 +537,11 @@ if __name__ == "__main__" :
     ParameterGuess_instance.Omega = np.array([[0.4**2, 0.9**2, 0.2**2]])
 
 
-    list_paths = [".\\database\\filled\\DOLARF_filled.csv",
-                  ".\\database\\filled\\IBOV_filled.csv",   
-                   ".\\database\\filled\\NASDAQ_filled.csv",
-                   ".\\database\\filled\\SnP500_filled.csv"]
+    # list_paths = [".\\database\\filled\\DOLARF_filled.csv",
+    #               ".\\database\\filled\\IBOV_filled.csv",   
+    #                ".\\database\\filled\\NASDAQ_filled.csv",
+    #                ".\\database\\filled\\SnP500_filled.csv"]
+    list_paths = [".\\database\\filled\\IBOV_filled.csv"]
 
     for path in list_paths:
 
@@ -556,11 +562,12 @@ if __name__ == "__main__" :
         # Create an estimator instance
         ModelEstimator = MarkovSwitching_estimator(model)
         
-        ModelEstimator.Fit(traceLevel=1)
+        ModelEstimator.Fit(traceLevel=1, precision=1e-6)
         
-        with open(f"{datetime.today().strftime('%Y-%m-%d %H-%M-%S')}_Console ({ModelEstimator.Model.ModelName}).txt", 'w', encoding='utf-8') as fileStream:
-            print(ModelEstimator.Model, file=fileStream)
         print(ModelEstimator.Model)
+
+        # with open(f"{datetime.today().strftime('%Y-%m-%d %H-%M-%S')}_Console ({ModelEstimator.Model.ModelName}).txt", 'w', encoding='utf-8') as fileStream:
+        #     print(ModelEstimator.Model, file=fileStream)
 
         GenerateSmoothProbabilitiesPlot(ModelEstimator.Model)
 
