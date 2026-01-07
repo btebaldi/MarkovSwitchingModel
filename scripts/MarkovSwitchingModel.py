@@ -170,6 +170,8 @@ class MarkovSwitchingModel:
         else:
             self.ModelName = model_name
 
+        self.NumParameters = (self.NumXVariables * self.NumRegimes) + self.NumRegimes * (self.NumRegimes - 1) + self.Omega.size 
+
     def GetResiduals(self):
         """
         Calculate and return residuals from the model.
@@ -195,26 +197,29 @@ class MarkovSwitchingModel:
 
         SSE = 0
         for regime_number in range(self.NumRegimes):
-
-            Weights_Matrix = np.diag(self.Xi_smoothed[:, regime_number])
-            SSE += residuals[:, regime_number].T @ Weights_Matrix @ residuals[:, regime_number]
+            SSE += sum(residuals[:, regime_number] * residuals[:, regime_number] * self.Xi_smoothed[:, regime_number])
         
         return SSE
 
-    # def GetLogLikelihood(self) -> float:
-    #     """
-    #     Calculate the log-likelihood of the model given current parameters.
-        
-    #     The likelihood combines the SSE with state probabilities weighted by
-    #     the smoothed regime probabilities across all observations.
+    def GetAIC(self) -> float:
+        """
+        Compute the Akaike Information Criterion per observation.
 
-    #     Returns:
-    #         float: The log-likelihood value for the current model parameters.
-    #     """
-    #     loglikelihood = -self.GetSSE()
-    #     for regime in range(self.NumRegimes):
-    #         loglikelihood += np.sum(np.log(self.UnconditionalStateProbs[regime]) * self.Xi_smoothed[:, regime])
-    #     return loglikelihood
+        Returns:
+            float: AIC derived from the current log-likelihood and parameter count.
+        """
+        aic = (-2 * self.GetLogLikelihood() + 2*self.NumParameters) / self.NumObservations
+        return aic
+    
+    def GetBIC(self) -> float:
+        """
+        Compute the Bayesian Information Criterion per observation.
+
+        Returns:
+            float: BIC derived from the current log-likelihood and parameter count.
+        """
+        aic = (-2 * self.GetLogLikelihood() + self.NumParameters*np.log(self.NumObservations)) / self.NumObservations
+        return aic
     
     def EstimateResidualVariance(self) -> float:
         residual_variance = self.GetSSE() / (self.NumObservations)
@@ -308,10 +313,8 @@ class MarkovSwitchingModel:
 
         output += "\n"
         # ===== Information criteria =====
-        # aic = -2 * self.GetLogLikelihood() / self.NumObservations
-        # bic = 0
+        output += f"{'AIC':<18s}{self.GetAIC():12.8f}\n{'BIC':<18s}{self.GetBIC():12.8f}\n"
 
-        # output += f"{'AIC':<18s}{aic:12.8f}  {'SC':<18s}{bic:12.8f}\n"
 
         output += f"Start Values : {self._startValues}\n"
         output += "=" * 88 + "\n"
