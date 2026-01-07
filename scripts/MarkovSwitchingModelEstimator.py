@@ -346,7 +346,7 @@ class MarkovSwitching_estimator:
                 print(f"Iteration {interationCounter}: Estimated LogLikelihood {cur_ll:.6f} with change {delta:9.6f}{' Warning: model is diverging. Log-Likelihood decreased.' if delta < 0 else ''}")
             delta = (cur_ll - prev_ll)
 
-    def Predict(self, h: float, X_new: np.ndarray) -> np.ndarray:
+    def Predict(self, h: float, X_new: np.ndarray = None) -> np.ndarray:
         """
         Predicts the dependent variable using the fitted Markov Switching Model.
 
@@ -359,11 +359,40 @@ class MarkovSwitching_estimator:
 
         X_temp = np.empty((h+1, self.Model.NumXVariables))
         Y_temp = np.empty((h+1, 1))
+        Xi_temp = np.empty((h+1, self.Model.NumRegimes))
         
         # last value of lagged dependent variable
         X_temp[0, :] = self.Model.X[-1, :]  
         Y_temp[0, :] = self.Model.Y[-1, :]
+        Xi_temp[0, :] = self.Model.Xi_filtered[-1, :]
 
+        for h_t in range(1, int(h)+1):
+            
+            # Update X values
+            for col, (k, v) in enumerate(self.Model.ParamNames['X'].items()):
+                if v == MKM.TypeOfXVariable.INTERCEPT:
+                    X_temp[h_t, col] = 1
+                elif v == MKM.TypeOfXVariable.TREND:
+                    X_temp[h_t, col] = X_temp[h_t -1, col] + 1
+                elif v == MKM.TypeOfXVariable.AUTO_REGRESSIVE:
+                    X_temp[h_t, col] = Y_temp[h_t - 1, 0]
+                elif v == MKM.TypeOfXVariable.EXOGENOUS:
+                    raise NotImplementedError("Exogenous variables prediction not implemented yet.")
+                else:
+                    raise NotImplementedError("Unknown variable type.")
+
+            # Compute new Xi values
+            Xi_temp[h_t, :] = self.Model.TransitionMatrix.T @ Xi_temp[h_t - 1, :]
+
+            # predict dependent variable
+            Y_temp[h_t, :] = (X_new[h_t - 1, :] @ self.Model.Beta) @ Xi_temp[h_t, :].reshape(-1,1)
+
+            # for i, (k, v) in enumerate(a["X"].items()):
+                
+            # update lagged dependent variable in X_new
+            # for j in range(self.Model.NumXVariables):
+            #     if self.Model.ParamNames['X'][list(self.Model.ParamNames['X'].keys())[j]] == MKM.TypeOfXVariable.AUTO_REGRESSIVE:
+            #         X_new[i, j] = Y_temp[i, :]
         # X_labels = {"Intercept": MKM.TypeOfXVariable.INTERCEPT,
         #              "Trend": MKM.TypeOfXVariable.TREND,
         #              "AutoRegressive": MKM.TypeOfXVariable.AUTO_REGRESSIVE,
@@ -596,13 +625,15 @@ if __name__ == "__main__" :
         # Create an estimator instance
         ModelEstimator = MarkovSwitching_estimator(model)
         
-        ModelEstimator.Fit(traceLevel=1, precision=1e-1)
+        ModelEstimator.Fit(traceLevel=1, precision=1e-6)
         
         print(ModelEstimator.Model)
+
+        ModelEstimator.Predict(h=5)
 
         # with open(f"{datetime.today().strftime('%Y-%m-%d %H-%M-%S')}_Console ({ModelEstimator.Model.ModelName}).txt", 'w', encoding='utf-8') as fileStream:
         #     print(ModelEstimator.Model, file=fileStream)
 
-        GenerateSmoothProbabilitiesPlot(ModelEstimator.Model)
+        # GenerateSmoothProbabilitiesPlot(ModelEstimator.Model)
 
     print("Finished Estimation")
