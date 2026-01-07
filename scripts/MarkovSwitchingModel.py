@@ -1,6 +1,15 @@
 import numpy as np
 from datetime import datetime
 import scipy.stats as stats
+from enum import Enum
+
+class TypeOfXVariable(Enum):
+    """Enumeration for TypeX with values 1, 2, 3."""
+    INTERCEPT = 1
+    TREND = 2
+    AUTO_REGRESSIVE = 3
+    EXOGENOUS = 4
+
 class MarkovSwitchingModel:
     """
     A class to represent time series data and regime-switching model parameters.
@@ -9,7 +18,7 @@ class MarkovSwitchingModel:
     """
 
     def __init__(self, Y, X, num_regimes, beta=None, omega=None,
-                  transitionMatrix=None, unconditional_state_probs=None, param_names = None, dates_label=None, model_name=None):
+                  transitionMatrix=None, unconditional_state_probs=None, param_names = dict | None, dates_label=None, model_name=None):
         """
         Initialize a MarkovSwitchingModel instance with data and parameters.
 
@@ -141,16 +150,15 @@ class MarkovSwitchingModel:
 
         # ===== Parameter names for reporting =====
         if param_names is None:
-            self.ParamNames = {"Y" : "Dependent Variable", "X" : [f"X{i}" for i in range(self.NumXVariables)]}
-            # self.ParamNames = [f"X{i}" for i in range(self.NumXVariables)]
+            self.ParamNames = {"Y" : "Dependent Variable", "X" : {k: TypeOfXVariable.EXOGENOUS for k in [f"Exo{i}" for i in range(5)]} }
         else:
             if "Y" not in param_names:
                 raise ValueError("param_names must contain the key 'Y'.")
             if "X" not in param_names:
                 raise ValueError("param_names must contain the key 'Y'.")
             else:
-                if not isinstance(param_names["X"], list) or len(param_names["X"]) != self.NumXVariables:
-                    raise ValueError("param_names['X'] must be a list with exactly 5 elements.")
+                if not isinstance(param_names["X"], dict) or len(param_names["X"]) != self.NumXVariables:
+                    raise ValueError(f"param_names['X'] must be a dict with exactly {self.NumXVariables} elements.")
             self.ParamNames = param_names
 
         # ===== Initialize dates label =====
@@ -248,7 +256,8 @@ class MarkovSwitchingModel:
         # output += f"{'log-likelihood (Doornik):':<22s}{self.LogLikeOx():.4f}\n"
         # output += f"{'Varriance:':<22s}{self.EstimateResidualVariance()}\n"
         output += "=" * 88 + "\n"
-        output += "\n"
+        output += f"{self.ParamNames['Y']} ~ {' + '.join(self.ParamNames['X'].keys())}"
+        output += "\n\n"
         output += f"{'':22s}{'Coefficient':>12s} {'Std.Error':>11s} {'t-value':>9s} {'t-prob':>8s}\n"
 
         betaVariances = self.GetBetaVariance()
@@ -269,17 +278,17 @@ class MarkovSwitchingModel:
                 elif pval < 0.10:
                     stars = "*"
 
-                name = f"{self.ParamNames['X'][i]}(S = {r})"
+                name = f"{list(self.ParamNames['X'].keys())[i]}(S = {r})"
                 output += (
                     f"{name:<22s}"
                     f"{coef:12.7f} "
-                    # f"{se:11.7f} "
-                    # f"{tval:9.4f} "
-                    # f"{pval:8.4f} {stars}\n"
+                    f"{se:11.7f} "
+                    f"{tval:9.4f} "
+                    f"{pval:8.4f} {stars}\n"
 
-                    f"{"Not.Imp.":>11s}"
-                    f"{"Not.Imp.":>9s}"
-                    f"{"Not.Imp.":>8s}\n"
+                    # f"{"Not.Imp.":>11s}"
+                    # f"{"Not.Imp.":>9s}"
+                    # f"{"Not.Imp.":>8s}\n"
 
                 )
    
@@ -325,6 +334,9 @@ class MarkovSwitchingModel:
 
     def GetBetaVariance(self):
 
+        # f = lambda b: self.GetLogLikelihood(b)
+        # hessian = numerical_hessian(f, beta = self.Beta, h = 1e-4)
+
         Var_Betas_estimated = np.zeros((self.NumXVariables, 0))
 
         # For each regime, run OLS to estimate the regression
@@ -344,7 +356,7 @@ class MarkovSwitchingModel:
                 A_inv = np.linalg.pinv(A)
 
             # Calculate Betas
-            B = np.diag(A_inv * self.EstimateResidualVariance()) 
+            B = np.diag(A_inv * self.Omega[0, regime_number]) 
 
             # Stack the estimated Betas for each regime
             Var_Betas_estimated = np.column_stack([Var_Betas_estimated, B])

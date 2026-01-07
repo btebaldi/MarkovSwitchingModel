@@ -164,7 +164,6 @@ class MarkovSwitching_estimator:
         self.Model.TransitionMatrix = PP    
         return self.Model.TransitionMatrix
 
-
     def EstimateTransitionMatrix_Hamilton(self) -> np.ndarray:
         """
         Estimates the transition matrix based on smoothed probabilities.
@@ -346,9 +345,38 @@ class MarkovSwitching_estimator:
                 # print(f"Iteration {interationCounter}: Estimated LogLikelihood {cur_ll:.6f} with change {delta:9.6f} - {self.Model.LogLikeOx():.6e}({delta2:9.6f}){' Warning: model is diverging. Log-Likelihood decreased.' if delta < 0 else ''}")
                 print(f"Iteration {interationCounter}: Estimated LogLikelihood {cur_ll:.6f} with change {delta:9.6f}{' Warning: model is diverging. Log-Likelihood decreased.' if delta < 0 else ''}")
             delta = (cur_ll - prev_ll)
-            
+
+    def Predict(self, h: float, X_new: np.ndarray) -> np.ndarray:
+        """
+        Predicts the dependent variable using the fitted Markov Switching Model.
+
+        Parameters:
+            X_new (np.ndarray): New independent variable data for prediction.
+
+        Returns:
+            np.ndarray: Predicted values of the dependent variable.
+        """
+
+        X_temp = np.empty((h+1, self.Model.NumXVariables))
+        Y_temp = np.empty((h+1, 1))
+        
+        # last value of lagged dependent variable
+        X_temp[0, :] = self.Model.X[-1, :]  
+        Y_temp[0, :] = self.Model.Y[-1, :]
+
+        # X_labels = {"Intercept": MKM.TypeOfXVariable.INTERCEPT,
+        #              "Trend": MKM.TypeOfXVariable.TREND,
+        #              "AutoRegressive": MKM.TypeOfXVariable.AUTO_REGRESSIVE,
+        #              "Exogenous": MKM.TypeOfXVariable.EXOGENOUS}
+        # for step in range(1, int(h)+1):
+
+        # # Calculate predicted values
+        # Y_pred = X_new @ self.Model.Beta
+
+        return 0
+    
 def LoadModel(filePath, 
-              variable, Xvariable = None, ar = 1, level = False, intercept = True, trend = True,
+              variable, Xvariable: list | None = None, ar = 1, level = False, intercept = True, trend = True,
               regimes = 2,
               decimal='.', delimiter=',', parse_dates=None, date_format="%Y-%m-%d",
               index_col=None, data_ini = None, data_fim = None,
@@ -439,30 +467,36 @@ def LoadModel(filePath,
     
     # Create an instance of the Markov Switching Model
     Total_Exo_vars = len(Xvariable) if Xvariable is not None else 0
-    param_names = {'Y':'Close_filled', 'X':[f'Exo_{i}' for i in range(Total_Exo_vars)] + 
-                        ['Intercept', 'Trend'] + 
-                    [f'Lag_{i}' for i in range(1, ar + 1)]}
+    # param_names = {'Y':'Close_filled', 'X':[f'Exo_{i}' for i in range(Total_Exo_vars)] + 
+    #                     ['Intercept', 'Trend'] + 
+    #                 [f'Lag_{i}' for i in range(1, ar + 1)]}
+    
+    param_names = {'Y':'Close_filled',
+                   'X':{'Intercept' : MKM.TypeOfXVariable.INTERCEPT, 'Trend' : MKM.TypeOfXVariable.TREND} }
  
     # add intercept and trend if specified
     X = np.empty((Y.shape[0], 0))  # Initialize X as an empty array
 
-    if Xvariable is not None:
-        X = np.column_stack([X, df[Xvariable].to_numpy()])
+    if intercept :
+        X = np.column_stack([X, data_intercept])
+    else:
+        param_names['X'].pop('Intercept')
 
     if trend :
         X = np.column_stack([X, data_trend])
     else:
-        param_names['X'].remove('Trend')
- 
-    if intercept :
-        X = np.column_stack([X, data_intercept])
-    else:
-        param_names['X'].remove('Intercept')
+        param_names['X'].pop('Trend')
+
+    if Xvariable is not None:
+        for Xvar in Xvariable:
+            X = np.column_stack([X, df[Xvar].to_numpy()])
+            param_names['X'][Xvar] = MKM.TypeOfXVariable.EXOGENOUS
 
     # Build the independent variable matrix X by horizontally stacking the intercept and lagged dependent variable
     # X has dimensions (T x 2): first column is the constant, second column is lagged Close-Level
     for lag in range(1, ar + 1):
         X = np.column_stack([X, df[f'Y_lag_{lag}'].to_numpy()])
+        param_names['X'][f'Lag_{lag}'] = MKM.TypeOfXVariable.AUTO_REGRESSIVE
     
     if initial_guess is None:
         # ===== Generate initial parameter guesses =====
@@ -562,7 +596,7 @@ if __name__ == "__main__" :
         # Create an estimator instance
         ModelEstimator = MarkovSwitching_estimator(model)
         
-        ModelEstimator.Fit(traceLevel=1, precision=1e-6)
+        ModelEstimator.Fit(traceLevel=1, precision=1e-1)
         
         print(ModelEstimator.Model)
 
