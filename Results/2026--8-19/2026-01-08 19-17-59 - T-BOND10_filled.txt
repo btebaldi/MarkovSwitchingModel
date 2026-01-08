@@ -4,7 +4,7 @@ T-BOND10_filled
 MarkovSwitching(3 regimes) Modelling Close_filled
 
 Summary of Results
-Date of estimation:   2026-01-08 15:30:33
+Date of estimation:   2026-01-08 19:18:16
 No. of observations:  5218
 Date range:           2005-11-22 00:00:00 to 2025-11-20 00:00:00
 log-likelihood:       13087.5128

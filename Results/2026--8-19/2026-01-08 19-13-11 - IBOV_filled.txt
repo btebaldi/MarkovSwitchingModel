@@ -4,7 +4,7 @@ IBOV_filled
 MarkovSwitching(3 regimes) Modelling Close_filled
 
 Summary of Results
-Date of estimation:   2026-01-08 15:26:02
+Date of estimation:   2026-01-08 19:14:01
 No. of observations:  5218
 Date range:           2005-11-22 00:00:00 to 2025-11-20 00:00:00
 log-likelihood:       15119.9090
