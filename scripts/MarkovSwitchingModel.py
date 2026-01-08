@@ -3,12 +3,62 @@ from datetime import datetime
 import scipy.stats as stats
 from enum import Enum
 
-class TypeOfXVariable(Enum):
-    """Enumeration for TypeX with values 1, 2, 3."""
+class TypeOfDependentVariable(Enum):
     INTERCEPT = 1
     TREND = 2
     AUTO_REGRESSIVE = 3
     EXOGENOUS = 4
+
+class TypeOfVariable(Enum):
+    DEPENDENT = 0
+    INDEPENDENT = 1
+
+class TypeOfTransformation(Enum):
+    NONE = 0
+    LEVEL = 1
+    LOG_DIFF = 2
+    STANDARIZE = 3
+
+
+def GetEmptyParamNames() -> dict:
+    """
+    Returns an empty dictionary structure for parameter names.
+    """
+    param_names = {"Y": dict(), "X": dict()}
+    return param_names
+
+def GetDictRepresentation(name: str, 
+                          type: TypeOfVariable,
+                          classX: TypeOfDependentVariable | None = None,
+                          transformation: TypeOfTransformation = TypeOfTransformation.NONE,
+                          ar: int | None = None):
+    if type is None:
+        raise ValueError("TypeOfVariable must be provided.")
+    
+    if name is None:
+        raise ValueError("Name must be provided.")
+    
+    if type == TypeOfVariable.DEPENDENT:
+        classX = None
+    else:
+        if classX is None:
+            raise ValueError("ClassOfRegressor must be provided for independent variables.")
+            
+    if classX != TypeOfDependentVariable.AUTO_REGRESSIVE:
+        ar = None
+
+    if transformation is None:
+        transformation = TypeOfTransformation.NONE
+
+    myDict =  {
+        "Name" : name,
+        "Type": type,
+        "ClassOfRegressor": classX,
+        "Transformation": transformation,
+        "AR": ar
+    }
+
+    return myDict
 
 class MarkovSwitchingModel:
     """
@@ -46,6 +96,7 @@ class MarkovSwitchingModel:
 
         # Store the dependent variable (Y)
         self.Y = Y
+        self.NumYVariables = self.Y.shape[1]
 
         if np.any(np.isnan(X)):
             raise ValueError("X contains NaN (missing) values.")
@@ -150,12 +201,18 @@ class MarkovSwitchingModel:
 
         # ===== Parameter names for reporting =====
         if param_names is None:
-            self.ParamNames = {"Y" : "Dependent Variable", "X" : {k: TypeOfXVariable.EXOGENOUS for k in [f"Exo{i}" for i in range(5)]} }
+            # self.ParamNames = {"Y" : "Dependent Variable", "X" : {k: TypeOfXVariable.EXOGENOUS for k in [f"Exo{i}" for i in range(5)]} }
+            self.ParamNames = GetEmptyParamNames()
+            self.ParamNames["Y"][0] = GetDictRepresentation(name="Dependent Variable",
+                                                            type=TypeOfVariable.DEPENDENT)
+            for i in range(self.NumXVariables):
+                self.ParamNames["X"][i] = GetDictRepresentation(name=f"Exogenous Variable {i}",
+                                                                type=TypeOfVariable.INDEPENDENT, classX=TypeOfDependentVariable.EXOGENOUS)
         else:
             if "Y" not in param_names:
                 raise ValueError("param_names must contain the key 'Y'.")
             if "X" not in param_names:
-                raise ValueError("param_names must contain the key 'Y'.")
+                raise ValueError("param_names must contain the key 'X'.")
             else:
                 if not isinstance(param_names["X"], dict) or len(param_names["X"]) != self.NumXVariables:
                     raise ValueError(f"param_names['X'] must be a dict with exactly {self.NumXVariables} elements.")
@@ -253,11 +310,11 @@ class MarkovSwitchingModel:
         output += f"{'No. of observations:':<22s}{self.NumObservations}\n"
         output += f"{'Date range:':<22s}{self.DatesLabel[0]} to {self.DatesLabel[-1]}\n"
         output += f"{'log-likelihood:':<22s}{self.GetLogLikelihood():.4f}\n"
-        # output += f"{'log-likelihood (Doornik):':<22s}{self.LogLikeOx():.4f}\n"
-        # output += f"{'Varriance:':<22s}{self.EstimateResidualVariance()}\n"
         output += "=" * 88 + "\n"
-        output += f"{self.ParamNames['Y']} ~ {' + '.join(self.ParamNames['X'].keys())}"
-        output += "\n\n"
+
+        x_names = [v['Name'] for v in self.ParamNames['X'].values()]
+        output += f"{'DL.' if self.ParamNames['Y'][0]['Transformation'] == TypeOfTransformation.LOG_DIFF else ''}{self.ParamNames['Y'][0]['Name']} ~ {' + '.join(x_names)}\n"
+        output += "\n"
         output += f"{'':22s}{'Coefficient':>12s} {'Std.Error':>11s} {'t-value':>9s} {'t-prob':>8s}\n"
 
         betaVariances = self.GetBetaVariance()
@@ -278,18 +335,13 @@ class MarkovSwitchingModel:
                 elif pval < 0.10:
                     stars = "*"
 
-                name = f"{list(self.ParamNames['X'].keys())[i]}(S = {r})"
+                name = f"{x_names[i]}(S = {r})"
                 output += (
                     f"{name:<22s}"
                     f"{coef:12.7f} "
                     f"{se:11.7f} "
                     f"{tval:9.4f} "
                     f"{pval:8.4f} {stars}\n"
-
-                    # f"{"Not.Imp.":>11s}"
-                    # f"{"Not.Imp.":>9s}"
-                    # f"{"Not.Imp.":>8s}\n"
-
                 )
    
         output += "\n"
@@ -333,9 +385,6 @@ class MarkovSwitchingModel:
 
 
     def GetBetaVariance(self):
-
-        # f = lambda b: self.GetLogLikelihood(b)
-        # hessian = numerical_hessian(f, beta = self.Beta, h = 1e-4)
 
         Var_Betas_estimated = np.zeros((self.NumXVariables, 0))
 

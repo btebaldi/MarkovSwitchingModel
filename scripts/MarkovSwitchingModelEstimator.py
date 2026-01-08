@@ -346,7 +346,7 @@ class MarkovSwitching_estimator:
                 print(f"Iteration {interationCounter}: Estimated LogLikelihood {cur_ll:.6f} with change {delta:9.6f}{' Warning: model is diverging. Log-Likelihood decreased.' if delta < 0 else ''}")
             delta = (cur_ll - prev_ll)
 
-    def Predict(self, h: float, X_new: np.ndarray = None) -> np.ndarray:
+    def Predict(self, h: int, X_new: np.ndarray | None = None) -> np.ndarray:
         """
         Predicts the dependent variable using the fitted Markov Switching Model.
 
@@ -357,55 +357,47 @@ class MarkovSwitching_estimator:
             np.ndarray: Predicted values of the dependent variable.
         """
 
-        X_temp = np.empty((h+1, self.Model.NumXVariables))
-        Y_temp = np.empty((h+1, 1))
-        Xi_temp = np.empty((h+1, self.Model.NumRegimes))
+        X_temp: np.ndarray = np.zeros((self.Model.NumObservations + h, self.Model.NumXVariables))
+        Y_temp: np.ndarray = np.zeros((self.Model.NumObservations + h, self.Model.NumYVariables))
+        Xi_temp: np.ndarray = np.zeros((self.Model.NumObservations + h, self.Model.NumRegimes))
         
         # last value of lagged dependent variable
-        X_temp[0, :] = self.Model.X[-1, :]  
-        Y_temp[0, :] = self.Model.Y[-1, :]
-        Xi_temp[0, :] = self.Model.Xi_filtered[-1, :]
+
+
+        X_temp[0:self.Model.NumObservations, :] = self.Model.X
+        Y_temp[0:self.Model.NumObservations, :] = self.Model.Y
+        Xi_temp[0:self.Model.NumObservations, :] = self.Model.Xi_filtered
+
+        idx = self.Model.NumObservations -1    
 
         for h_t in range(1, int(h)+1):
             
             # Update X values
-            for col, (k, v) in enumerate(self.Model.ParamNames['X'].items()):
-                if v == MKM.TypeOfXVariable.INTERCEPT:
-                    X_temp[h_t, col] = 1
-                elif v == MKM.TypeOfXVariable.TREND:
-                    X_temp[h_t, col] = X_temp[h_t -1, col] + 1
-                elif v == MKM.TypeOfXVariable.AUTO_REGRESSIVE:
-                    X_temp[h_t, col] = Y_temp[h_t - 1, 0]
-                elif v == MKM.TypeOfXVariable.EXOGENOUS:
-                    raise NotImplementedError("Exogenous variables prediction not implemented yet.")
+            for col in range(self.Model.NumXVariables):
+                if self.Model.ParamNames['X'][col]["ClassOfRegressor"] == MKM.TypeOfDependentVariable.INTERCEPT:
+                    X_temp[idx + h_t, col] = 1
+                elif self.Model.ParamNames['X'][col]["ClassOfRegressor"] == MKM.TypeOfDependentVariable.TREND:
+                    X_temp[idx + h_t, col] = X_temp[idx + h_t -1, col] + 1
+                elif self.Model.ParamNames['X'][col]["ClassOfRegressor"] == MKM.TypeOfDependentVariable.AUTO_REGRESSIVE:
+                    X_temp[idx + h_t, col] = Y_temp[idx + h_t - self.Model.ParamNames['X'][col]["AR"], 0]
+                elif self.Model.ParamNames['X'][col]["ClassOfRegressor"] == MKM.TypeOfDependentVariable.EXOGENOUS:
+                    raise NotImplementedError("Not implemented yet.")
+                    X_temp[idx + h_t, col] = X_new[h_t, col]
                 else:
                     raise NotImplementedError("Unknown variable type.")
 
             # Compute new Xi values
-            Xi_temp[h_t, :] = self.Model.TransitionMatrix.T @ Xi_temp[h_t - 1, :]
+            Xi_temp[idx + h_t, :] = self.Model.TransitionMatrix.T @ Xi_temp[idx + h_t - 1, :]
 
             # predict dependent variable
-            Y_temp[h_t, :] = (X_new[h_t - 1, :] @ self.Model.Beta) @ Xi_temp[h_t, :].reshape(-1,1)
+            Y_temp[idx + h_t, :] = (X_temp[idx + h_t, :] @ self.Model.Beta) @ Xi_temp[idx + h_t, :].reshape(-1,1)
 
-            # for i, (k, v) in enumerate(a["X"].items()):
-                
-            # update lagged dependent variable in X_new
-            # for j in range(self.Model.NumXVariables):
-            #     if self.Model.ParamNames['X'][list(self.Model.ParamNames['X'].keys())[j]] == MKM.TypeOfXVariable.AUTO_REGRESSIVE:
-            #         X_new[i, j] = Y_temp[i, :]
-        # X_labels = {"Intercept": MKM.TypeOfXVariable.INTERCEPT,
-        #              "Trend": MKM.TypeOfXVariable.TREND,
-        #              "AutoRegressive": MKM.TypeOfXVariable.AUTO_REGRESSIVE,
-        #              "Exogenous": MKM.TypeOfXVariable.EXOGENOUS}
-        # for step in range(1, int(h)+1):
-
-        # # Calculate predicted values
-        # Y_pred = X_new @ self.Model.Beta
-
-        return 0
+        return Y_temp[idx:, :], X_temp[idx:, :], Xi_temp[idx:, :]
     
 def LoadModel(filePath, 
-              variable, Xvariable: list | None = None, ar = 1, level = False, intercept = True, trend = True,
+              variable, Xvariable: list | None = None,
+              ar = 1,
+              level = False, intercept = True, trend = True,
               regimes = 2,
               decimal='.', delimiter=',', parse_dates=None, date_format="%Y-%m-%d",
               index_col=None, data_ini = None, data_fim = None,
@@ -436,7 +428,11 @@ def LoadModel(filePath,
         model (MKM.MarkovSwitchingModel): An instance of the Markov Switching Model initialized with 
                                          preprocessed data and random initial parameters.
     """
+
+    # Initialize parameter names dictionary 
+    param_names =  MKM.GetEmptyParamNames()
      
+    # Convert filePath to Path object if it's a string
     filePath = plib.Path(filePath)
 
     # ===== LOAD DATA FROM CSV FILE =====
@@ -464,8 +460,10 @@ def LoadModel(filePath,
     # otherwise, compute log-returns
     if level:
         df['Y'] = df[variable]
+        ytrasnsformation = MKM.TypeOfTransformation.LEVEL
     else:
         df['Y'] = np.log(df[variable] / df[variable].shift(1))
+        ytrasnsformation = MKM.TypeOfTransformation.LOG_DIFF
         
         #  Remove the first row which contains NaN due to the log-return calculation
         df = df.iloc[1:, :]
@@ -486,6 +484,7 @@ def LoadModel(filePath,
    
     # ===== Extract Y and X from the database =====
     Y = df['Y'].to_numpy().reshape((-1, 1))
+    param_names['Y'][0] = MKM.GetDictRepresentation(name = variable, type = MKM.TypeOfVariable.DEPENDENT, classX = None, transformation = ytrasnsformation, ar = None)
 
     # Create a trend variable (linear time index from 0 to T-1)
     # Note: This variable is currently unused in the model specification below
@@ -500,32 +499,49 @@ def LoadModel(filePath,
     #                     ['Intercept', 'Trend'] + 
     #                 [f'Lag_{i}' for i in range(1, ar + 1)]}
     
-    param_names = {'Y':'Close_filled',
-                   'X':{'Intercept' : MKM.TypeOfXVariable.INTERCEPT, 'Trend' : MKM.TypeOfXVariable.TREND} }
+    # param_names = {'Y':'Close_filled',
+    #                'X':{'Intercept' : MKM.TypeOfXVariable.INTERCEPT, 'Trend' : MKM.TypeOfXVariable.TREND} }
  
     # add intercept and trend if specified
     X = np.empty((Y.shape[0], 0))  # Initialize X as an empty array
 
+    nColumn_X = 0
     if intercept :
         X = np.column_stack([X, data_intercept])
-    else:
-        param_names['X'].pop('Intercept')
+        param_names['X'][nColumn_X] = MKM.GetDictRepresentation(name = 'Intercept',
+                                                        type = MKM.TypeOfVariable.INDEPENDENT,
+                                                        classX = MKM.TypeOfDependentVariable.INTERCEPT,
+                                                        transformation = MKM.TypeOfTransformation.NONE, ar = None)
+        nColumn_X = nColumn_X + 1
 
     if trend :
         X = np.column_stack([X, data_trend])
-    else:
-        param_names['X'].pop('Trend')
+        param_names['X'][nColumn_X] = MKM.GetDictRepresentation(name = 'Trend',
+                                                        type = MKM.TypeOfVariable.INDEPENDENT,
+                                                        classX = MKM.TypeOfDependentVariable.TREND,
+                                                        transformation = MKM.TypeOfTransformation.NONE, ar = None)
+        nColumn_X = nColumn_X + 1
+
 
     if Xvariable is not None:
         for Xvar in Xvariable:
             X = np.column_stack([X, df[Xvar].to_numpy()])
-            param_names['X'][Xvar] = MKM.TypeOfXVariable.EXOGENOUS
+            param_names['X'][nColumn_X] = MKM.GetDictRepresentation(name = Xvar,
+                                                            type = MKM.TypeOfVariable.INDEPENDENT,
+                                                            classX = MKM.TypeOfDependentVariable.EXOGENOUS,
+                                                            transformation = MKM.TypeOfTransformation.NONE, ar = None)
+            nColumn_X = nColumn_X + 1
 
     # Build the independent variable matrix X by horizontally stacking the intercept and lagged dependent variable
     # X has dimensions (T x 2): first column is the constant, second column is lagged Close-Level
     for lag in range(1, ar + 1):
         X = np.column_stack([X, df[f'Y_lag_{lag}'].to_numpy()])
-        param_names['X'][f'Lag_{lag}'] = MKM.TypeOfXVariable.AUTO_REGRESSIVE
+        # param_names['X'][f'Lag_{lag}'] = MKM.TypeOfXVariable.AUTO_REGRESSIVE
+        param_names['X'][nColumn_X] = MKM.GetDictRepresentation(name = f"Lag_{lag}",
+                                                            type = MKM.TypeOfVariable.INDEPENDENT,
+                                                            classX = MKM.TypeOfDependentVariable.AUTO_REGRESSIVE,
+                                                            transformation = MKM.TypeOfTransformation.NONE, ar = lag)
+        nColumn_X = nColumn_X + 1
     
     if initial_guess is None:
         # ===== Generate initial parameter guesses =====
@@ -603,8 +619,10 @@ if __name__ == "__main__" :
     # list_paths = [".\\database\\filled\\DOLARF_filled.csv",
     #               ".\\database\\filled\\IBOV_filled.csv",   
     #                ".\\database\\filled\\NASDAQ_filled.csv",
-    #                ".\\database\\filled\\SnP500_filled.csv"]
-    list_paths = [".\\database\\filled\\IBOV_filled.csv"]
+    #                ".\\database\\filled\\SnP500_filled.csv",
+    #                ".\\database\\filled\\SMLL_filled.csv",
+    #                ".\\database\\filled\\T-BOND10_filled.csv"]
+    list_paths = [".\\database\\filled\\NASDAQ_filled.csv"]
 
     for path in list_paths:
 
@@ -625,15 +643,15 @@ if __name__ == "__main__" :
         # Create an estimator instance
         ModelEstimator = MarkovSwitching_estimator(model)
         
-        ModelEstimator.Fit(traceLevel=1, precision=1e-6)
+        ModelEstimator.Fit(traceLevel=1, precision=10)
         
         print(ModelEstimator.Model)
-
-        ModelEstimator.Predict(h=5)
-
         # with open(f"{datetime.today().strftime('%Y-%m-%d %H-%M-%S')}_Console ({ModelEstimator.Model.ModelName}).txt", 'w', encoding='utf-8') as fileStream:
         #     print(ModelEstimator.Model, file=fileStream)
 
-        # GenerateSmoothProbabilitiesPlot(ModelEstimator.Model)
+        new_Y, new_X, new_Xi = ModelEstimator.Predict(h=30)
+        print("Predicted Y:\n", new_Y)
+
+        GenerateSmoothProbabilitiesPlot(ModelEstimator.Model)
 
     print("Finished Estimation")
