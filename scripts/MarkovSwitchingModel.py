@@ -304,7 +304,7 @@ class MarkovSwitchingModel:
         output += "=" * 88 + "\n"
         output += f"{self.ModelName}\n\n"
 
-        output += f"MarkovSwitching({self.NumRegimes} regimes) Modelling {self.ParamNames['Y']}\n"
+        output += f"MarkovSwitching({self.NumRegimes} regimes) Modelling {self.ParamNames['Y'][0]['Name']}\n"
         output += f"\nSummary of Results\n"
         output += f"{'Date of estimation:':<22s}{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n"
         output += f"{'No. of observations:':<22s}{self.NumObservations}\n"

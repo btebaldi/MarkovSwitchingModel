@@ -556,7 +556,7 @@ def LoadModel(filePath,
 
     return model
 
-def GenerateSmoothProbabilitiesPlot(model: MKM.MarkovSwitchingModel) -> None:
+def GenerateSmoothProbabilitiesPlot(model: MKM.MarkovSwitchingModel, fileStem: str) -> None:
     """
     Visualizes the smoothed regime probabilities for each regime over time.
     
@@ -583,8 +583,9 @@ def GenerateSmoothProbabilitiesPlot(model: MKM.MarkovSwitchingModel) -> None:
         # Plot the smoothed probabilities for the current regime against the date labels
         # model.DatesLabel contains the time index (dates or periods)
         # model.Xi_smoothed[:, cur_mod] contains the smoothed probability for regime cur_mod at each time point
-        ax.plot(model.DatesLabel, model.Xi_smoothed[:, cur_mod])
-        
+        ax.plot(model.DatesLabel, model.Xi_smoothed[:, cur_mod], lw=0.5)
+        ax.fill_between(x = model.DatesLabel,  y1 = 1, where=(model.Xi_smoothed[:, cur_mod] >= 0.5), color="k", alpha=0.1)
+           
         # Set the y-axis label to indicate which regime this subplot represents
         ax.set_ylabel(f"Regime {cur_mod}")
     
@@ -596,7 +597,7 @@ def GenerateSmoothProbabilitiesPlot(model: MKM.MarkovSwitchingModel) -> None:
 
     # Save the figure to a PNG file with high resolution (300 DPI)
     # bbox_inches='tight' ensures no content is cut off at the figure edges
-    plt.savefig(f"markov_switching_plot_{datetime.today().strftime('%Y-%m-%d %H-%M-%S')}.png", dpi=300, bbox_inches='tight')
+    plt.savefig(f"{fileStem} markov_switching_plot.png", dpi=300, bbox_inches='tight')
 
 if __name__ == "__main__" :
     # Load the model from a CSV file
@@ -616,13 +617,13 @@ if __name__ == "__main__" :
     ParameterGuess_instance.Omega = np.array([[0.4**2, 0.9**2, 0.2**2]])
 
 
-    # list_paths = [".\\database\\filled\\DOLARF_filled.csv",
-    #               ".\\database\\filled\\IBOV_filled.csv",   
-    #                ".\\database\\filled\\NASDAQ_filled.csv",
-    #                ".\\database\\filled\\SnP500_filled.csv",
-    #                ".\\database\\filled\\SMLL_filled.csv",
-    #                ".\\database\\filled\\T-BOND10_filled.csv"]
-    list_paths = [".\\database\\filled\\NASDAQ_filled.csv"]
+    list_paths = [".\\database\\filled\\DOLARF_filled.csv",
+                  ".\\database\\filled\\IBOV_filled.csv",   
+                   ".\\database\\filled\\NASDAQ_filled.csv",
+                   ".\\database\\filled\\SnP500_filled.csv",
+                   ".\\database\\filled\\SMLL_filled.csv",
+                   ".\\database\\filled\\T-BOND10_filled.csv"]
+    # list_paths = [".\\database\\filled\\NASDAQ_filled.csv"]
 
     for path in list_paths:
 
@@ -639,19 +640,26 @@ if __name__ == "__main__" :
                         data_ini="2005-11-22",
                         data_fim="2025-11-20",
                         initial_guess=ParameterGuess_instance)
-        
+
         # Create an estimator instance
         ModelEstimator = MarkovSwitching_estimator(model)
         
-        ModelEstimator.Fit(traceLevel=1, precision=10)
-        
-        print(ModelEstimator.Model)
-        # with open(f"{datetime.today().strftime('%Y-%m-%d %H-%M-%S')}_Console ({ModelEstimator.Model.ModelName}).txt", 'w', encoding='utf-8') as fileStream:
-        #     print(ModelEstimator.Model, file=fileStream)
+        # Define file stem pattern for saving results
+        fileStem = f"{datetime.today().strftime('%Y-%m-%d %H-%M-%S')} - {ModelEstimator.Model.ModelName}"
 
+        # Fit the model
+        ModelEstimator.Fit(traceLevel=1)
+
+        # Save model summary to a text file
+        print(ModelEstimator.Model)
+        with open(f"{fileStem}.txt", 'w', encoding='utf-8') as fileStream:
+            print(ModelEstimator.Model, file=fileStream)
+
+        # Make predictions
         new_Y, new_X, new_Xi = ModelEstimator.Predict(h=30)
         print("Predicted Y:\n", new_Y)
 
-        GenerateSmoothProbabilitiesPlot(ModelEstimator.Model)
+        # Generate and save smoothed probabilities plot
+        GenerateSmoothProbabilitiesPlot(ModelEstimator.Model, fileStem=fileStem)
 
     print("Finished Estimation")
