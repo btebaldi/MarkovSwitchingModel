@@ -127,15 +127,6 @@ def LoadModel(filePath,
     # Create an intercept column (vector of ones) for the constant term in the regression
     data_intercept = np.ones(Y.shape[0])
     
-    # Create an instance of the Markov Switching Model
-    Total_Exo_vars = len(Xvariable) if Xvariable is not None else 0
-    # param_names = {'Y':'Close_filled', 'X':[f'Exo_{i}' for i in range(Total_Exo_vars)] + 
-    #                     ['Intercept', 'Trend'] + 
-    #                 [f'Lag_{i}' for i in range(1, ar + 1)]}
-    
-    # param_names = {'Y':'Close_filled',
-    #                'X':{'Intercept' : MKM.TypeOfXVariable.INTERCEPT, 'Trend' : MKM.TypeOfXVariable.TREND} }
- 
     # add intercept and trend if specified
     X = np.empty((Y.shape[0], 0))  # Initialize X as an empty array
 
@@ -247,6 +238,7 @@ if __name__ == "__main__" :
                    ".\\database\\filled\\SnP500_filled.csv",
                    ".\\database\\filled\\SMLL_filled.csv",
                    ".\\database\\filled\\T-BOND10_filled.csv"]
+    
     list_paths = [".\\database\\filled\\NASDAQ_filled.csv"]
 
     for path in list_paths:
@@ -273,6 +265,9 @@ if __name__ == "__main__" :
 
         # Fit the model
         ModelEstimator.Fit(traceLevel=1)
+
+
+        print(MKM.GetRegimeClassification(ModelEstimator.Model))
 
         # Save model summary to a text file
         print(ModelEstimator.Model)

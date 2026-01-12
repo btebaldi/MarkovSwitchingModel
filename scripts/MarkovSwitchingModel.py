@@ -1,5 +1,6 @@
+import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import date, datetime
 import scipy.stats as stats
 from enum import Enum
 
@@ -60,6 +61,9 @@ def GetDictRepresentation(name: str,
 
     return myDict
 
+
+
+
 class MarkovSwitchingModel:
     """
     A class to represent time series data and regime-switching model parameters.
@@ -68,7 +72,8 @@ class MarkovSwitchingModel:
     """
 
     def __init__(self, Y, X, num_regimes, beta=None, omega=None,
-                  transitionMatrix=None, unconditional_state_probs=None, param_names = dict | None, dates_label=None, model_name=None):
+                  transitionMatrix=None, unconditional_state_probs=None, param_names: dict | None = None,
+                  dates_label: list[datetime] | None = None, model_name=None):
         """
         Initialize a MarkovSwitchingModel instance with data and parameters.
 
@@ -226,6 +231,14 @@ class MarkovSwitchingModel:
             # Validate dates_label length matches number of observations
             if len(dates_label) != self.NumObservations:
                 raise ValueError(f"dates_label length ({len(dates_label)}) must match number of observations ({self.NumObservations}).")
+            
+            # Validate dates_label is a list/array of dates
+            if not isinstance(dates_label, (list, pd.DatetimeIndex)):
+                raise ValueError("dates_label must be a list[Date or DateTime] or DatetimeIndex.")
+            
+            if not all(isinstance(x, (date, datetime)) for x in dates_label):
+                raise ValueError("dates_label must be a list[Date or DateTime] or DatetimeIndex.")
+            
             self.DatesLabel = dates_label
 
         self._startValues = {"beta":self.Beta, "omega":self.Omega, "transitionMatrix":self.TransitionMatrix, "unconditional_state_probs":self.UnconditionalStateProbs}
@@ -434,3 +447,64 @@ class MarkovSwitchingModel:
         
         loglikelihood = sum(np.log(likelihood))
         return loglikelihood.item()
+    
+
+def GetRegimeClassification (model: MarkovSwitchingModel) -> pd.DataFrame:
+    """
+    Extract and classify regime periods from a Markov Switching Model.
+    This function analyzes the smoothed state probabilities from a Markov Switching Model
+    to identify distinct regime periods, calculate their probabilities, and summarize
+    the regime switches over time.
+    Parameters
+    ----------
+    model : MarkovSwitchingModel
+        A fitted Markov Switching Model containing:
+        - Xi_smoothed: Smoothed state probabilities for each regime
+        - NumRegimes: Number of regimes in the model
+        - DatesLabel: Time series labels/dates for the observations
+    Returns
+    -------
+    pd.DataFrame
+        A DataFrame with MultiIndex (Regime_count, Regime) containing:
+        - start_date: Beginning date of the regime period
+        - end_date: Ending date of the regime period
+        - qtd: Number of observations in the regime period
+        - prob: Average probability of the regime during the period
+    Examples
+    --------
+    >>> regime_summary = GetRegimeClassification(fitted_model)
+    >>> print(regime_summary)
+                        start_date    end_date  qtd      prob
+    Regime_count Regime                                      
+    1            S_0    2020-01-01  2020-03-15   75  0.923456
+    2            S_1    2020-03-16  2020-06-30  107  0.856721
+    """
+
+    # Create DataFrame from smoothed state probabilities    
+    cols = [f"S_{i}" for i in range(model.NumRegimes)]
+    df_States = pd.DataFrame(model.Xi_smoothed, columns=cols)
+
+    # create index column (example: dates)
+    df_States.insert(
+        loc=0,
+        column="date",
+        value=model.DatesLabel)
+
+    # set as index
+    df_States = df_States.set_index("date")
+
+    # Determine the regime with the highest probability for each observation
+    df_States["Regime"] = df_States[cols].idxmax(axis=1)
+
+    # Create a regime change counter
+    df_States["Regime_count"] = (df_States["Regime"] != df_States["Regime"].shift()).cumsum()
+
+    # Generate summary DataFrame
+    df_States_Resume = df_States.groupby(["Regime_count", "Regime"]).apply(lambda x: pd.Series({
+    "start_date": x.index.min(),
+    "end_date": x.index.max(),
+    "qtd": len(x),
+    "prob" : x[x.name[1]].mean()
+    }))
+
+    return df_States_Resume
