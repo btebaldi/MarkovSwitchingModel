@@ -131,9 +131,9 @@ class MarkovSwitchingEstimator:
                 
                 PP[regime_from, regime_to] = self.Model.TransitionMatrix[regime_from, regime_to] * PP_ij/Denominator
 
-                # Normalize the rows to ensure they sum to 1
-                row_sums = PP.sum(axis=1, keepdims=True)
-                PP = PP / row_sums
+        # Normalize the rows to ensure they sum to 1
+        row_sums = PP.sum(axis=1, keepdims=True)
+        PP = PP / row_sums
 
         # Update the transition matrix
         self.Model.TransitionMatrix = PP    
