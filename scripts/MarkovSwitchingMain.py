@@ -1,10 +1,9 @@
 # Load necessary libraries
 import numpy as np
 import pandas as pd
-import scipy.stats as stats
 import MarkovSwitchingModel as MKM
 import MarkovSwitchingModelEstimator as MKE
-import matplotlib.pyplot as plt
+import MarkovSwitchingModelHelper as MKH
 from datetime import datetime
 import pathlib as plib
 
@@ -181,49 +180,6 @@ def LoadModel(filePath,
 
     return model
 
-def GenerateSmoothProbabilitiesPlot(model: MKM.MarkovSwitchingModel, fileStem: str) -> None:
-    """
-    Visualizes the smoothed regime probabilities for each regime over time.
-    
-    This function creates a multi-panel plot where each subplot displays the smoothed
-    probability of being in a specific regime across all time periods. The plot is saved
-    as a PNG file for later analysis.
-    
-    Parameters:
-        model (MKM.MarkovSwitchingModel): The fitted Markov Switching Model containing
-                                          smoothed probabilities (Xi_smoothed) and dates.
-    
-    Returns:
-        None: Saves the plot to 'markov_switching_plot.png' without returning a value.
-    """
-    # Create a figure with subplots, one for each regime
-    # figsize=(10, 6) sets the figure dimensions to 10 inches wide by 6 inches tall
-    fig, axes = plt.subplots(model.NumRegimes, figsize=(10, 6))
-
-    # Iterate through each regime to plot its smoothed probability over time
-    for cur_mod in range(model.NumRegimes):
-        # Select the current subplot (axis) for the current regime
-        ax = axes[cur_mod]
-        
-        # Plot the smoothed probabilities for the current regime against the date labels
-        # model.DatesLabel contains the time index (dates or periods)
-        # model.Xi_smoothed[:, cur_mod] contains the smoothed probability for regime cur_mod at each time point
-        ax.plot(model.DatesLabel, model.Xi_smoothed[:, cur_mod], lw=0.5)
-        ax.fill_between(x = model.DatesLabel,  y1 = 1, where=(model.Xi_smoothed[:, cur_mod] >= 0.5), color="k", alpha=0.1)
-           
-        # Set the y-axis label to indicate which regime this subplot represents
-        ax.set_ylabel(f"Regime {cur_mod}")
-    
-    # Set the title for the entire figure
-    fig.suptitle(f'{model.ModelName} Smoothed Probabilities', fontsize=9)
-
-    # Adjust the layout to prevent overlapping labels and titles
-    fig.tight_layout()
-
-    # Save the figure to a PNG file with high resolution (300 DPI)
-    # bbox_inches='tight' ensures no content is cut off at the figure edges
-    plt.savefig(f"{fileStem} markov_switching_plot.png", dpi=300, bbox_inches='tight')
-
 if __name__ == "__main__" :
     ParameterGuess_instance = ParameterGuess()
     ParameterGuess_instance.Beta = np.array([[-0.0002, 0.0003,  0.0023],
@@ -267,7 +223,7 @@ if __name__ == "__main__" :
         ModelEstimator.Fit(traceLevel=1)
 
 
-        print(MKM.GetRegimeClassification(ModelEstimator.Model))
+        print(MKH.GetRegimeClassification(ModelEstimator.Model))
 
         # Save model summary to a text file
         print(ModelEstimator.Model)
@@ -278,7 +234,9 @@ if __name__ == "__main__" :
         new_Y, new_X, new_Xi = ModelEstimator.Predict(h=30)
         print("Predicted Y:\n", new_Y)
 
+        print(MKH.GetRegimeNames(ModelEstimator.Model))
+
         # Generate and save smoothed probabilities plot
-        GenerateSmoothProbabilitiesPlot(ModelEstimator.Model, fileStem=fileStem)
+        MKH.GenerateSmoothProbabilitiesPlot(ModelEstimator.Model, fileStem=fileStem)
 
     print("Finished Estimation")
