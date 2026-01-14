@@ -321,15 +321,20 @@ class MarkovSwitchingEstimator:
                 print(f"Iteration {interationCounter}: Estimated LogLikelihood {cur_ll:.6f} with change {delta:9.6f}{' Warning: model is diverging. Log-Likelihood decreased.' if delta < 0 else ''}")
             delta = (cur_ll - prev_ll)
 
-    def Predict(self, h: int, X_new: np.ndarray | None = None) -> np.ndarray:
+    def Predict(
+        self, h: int, X_new: np.ndarray | None = None
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Predicts the dependent variable using the fitted Markov Switching Model.
 
         Parameters:
-            X_new (np.ndarray): New independent variable data for prediction.
+            h (int): Forecast horizon.
+            X_new (np.ndarray | None): New independent variable data for prediction.
 
         Returns:
-            np.ndarray: Predicted values of the dependent variable.
+            tuple[np.ndarray, np.ndarray, np.ndarray]:
+                (Y_pred, X_pred, Xi_pred) where each element contains the in-sample last row
+                plus the h-step forecast rows.
         """
 
         X_temp: np.ndarray = np.zeros((self.Model.NumObservations + h, self.Model.NumXVariables))
