@@ -56,7 +56,7 @@ def LoadModel(filePath,
               ar = 1,
               level = False, intercept = True, trend = True,
               regimes = 2,
-              decimal='.', delimiter=',', parse_dates=None, date_format="%Y-%m-%d",
+              decimal='.', delimiter=',', parse_dates=None, date_format: str| None="%Y-%m-%d",
               index_col=None, data_ini = None, data_fim = None,
               initial_guess=None) -> MKM.MarkovSwitchingModel:
     """
