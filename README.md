@@ -280,7 +280,40 @@ Using this helper is strongly recommended, as it ensures that:
 A basic usage example is provided in the file **`MarkovSwitchingExample.py`**.
 This script demonstrates the full estimation workflow for two specifications:
 
-* A **two-regime** Markov Switching model
+* **Two-regime Markov Switching model**
+
+  The data-generating process (DGP) follows a Markov Switching regression with **two regimes**, each characterized by distinct parameters and governed by a first-order Markov chain.
+
+  **Transition probabilities**
+
+  The regime dynamics are defined by the following transition probabilities:
+  $$\begin{aligned}
+  P(S_t = 0 \mid S_{t-1} = 0) &= 0.5, \\
+  P(S_t = 1 \mid S_{t-1} = 0) &= 0.5, \\
+  P(S_t = 0 \mid S_{t-1} = 1) &= 0.8, \\
+  P(S_t = 1 \mid S_{t-1} = 1) &= 0.2.
+  \end{aligned}$$
+  
+  These probabilities imply that regime 1 is relatively persistent in transitioning back to regime 0, while regime 0 exhibits equal likelihood of remaining or switching.
+
+  **Regime-specific parameters**
+
+  * **Regime 1**
+
+    * Mean ($\mu$): 0
+    * Slope coefficient ($\beta_x$): 1
+    * Variance ($\omega$): 1
+
+  * **Regime 0**
+
+    * Mean ($\mu$): 100
+    * Slope coefficient ($\beta_x$): 2
+    * Variance ($\omega$): 4
+
+  Together, these specifications generate a process with sharply contrasting regimes in both level and volatility, providing a clear illustration of how Markov Switching models capture structural changes in the data.
+
+
+
 * A **three-regime** Markov Switching model
 
 The example illustrates how to configure the model, run the estimation procedure, and analyze the resulting regime probabilities and parameter estimates.
