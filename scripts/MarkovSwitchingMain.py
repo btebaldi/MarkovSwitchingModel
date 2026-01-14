@@ -309,7 +309,7 @@ if __name__ == "__main__" :
 
         # Define file stem pattern and dir for saving results
         fileStem = f"{ModelEstimator.Model.ModelName}"
-        dirPath = plib.Path(".\\")
+        dirPath = plib.Path(".\\output")
 
         # Visualization:
         # Save smoothed regime probability plots for interpretation and reporting.
