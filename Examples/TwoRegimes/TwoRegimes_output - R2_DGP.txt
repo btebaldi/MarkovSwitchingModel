@@ -1,0 +1,38 @@
+========================================================================================
+R2_DGP
+
+MarkovSwitching(2 regimes) Modelling y
+
+Summary of Results
+Date of estimation:   2026-01-14 11:47:42
+No. of observations:  1000
+Date range:           1900-01-01 00:00:00 to 1902-09-27 00:00:00
+log-likelihood:       -2449.5899
+========================================================================================
+y ~ Intercept + x
+
+                       Coefficient   Std.Error   t-value   t-prob
+Intercept(S = 0)         0.0540758   0.0541928    0.9978   0.3186 
+Intercept(S = 1)        99.9686901   0.0788342 1268.0881   0.0000 ***
+x(S = 0)                 0.9242251   0.0530603   17.4184   0.0000 ***
+x(S = 1)                 1.9982111   0.0813412   24.5658   0.0000 ***
+
+                 Coefficient      Std.Error
+sigma(S = 0)       1.0605430 Not.Imp.
+sigma(S = 1)       1.9492815 Not.Imp.
+p_{0|0}            0.2051898 Not.Imp.
+p_{0|1}            0.4991901 Not.Imp.
+p_{1|0}            0.7948102 Not.Imp.
+p_{1|1}            0.5008099 Not.Imp.
+
+
+pi(S = 0)          0.3850000 
+pi(S = 1)          0.6150000 
+
+AIC                 4.91517978
+BIC                 4.95444183
+Start Values : {'beta': array([[ 1, 20],
+       [10,  1]]), 'omega': array([[  9, 100]]), 'transitionMatrix': array([[0.9, 0.1],
+       [0.1, 0.9]]), 'unconditional_state_probs': array([0.5, 0.5])}
+========================================================================================
+
