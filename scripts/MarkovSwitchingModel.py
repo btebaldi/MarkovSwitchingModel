@@ -68,9 +68,13 @@ class MarkovSwitchingModel:
     across different economic or market regimes.
     """
 
-    def __init__(self, Y, X, num_regimes, beta=None, omega=None,
-                  transitionMatrix=None, unconditional_state_probs=None, param_names: dict | None = None,
-                  dates_label: list[datetime] | None = None, model_name=None):
+    def __init__(self, Y: np.ndarray, X: np.ndarray, num_regimes:int,
+                 beta: np.ndarray|None =None,
+                 omega: np.ndarray|None = None,
+                 transitionMatrix: np.ndarray|None = None,
+                 unconditional_state_probs: np.ndarray|None = None,
+                 param_names: dict | None = None,
+                 dates_label: list[datetime] | None = None, model_name=None):
         """
         Initialize a MarkovSwitchingModel instance with data and parameters.
 
@@ -157,16 +161,16 @@ class MarkovSwitchingModel:
 
         # ===== Initialize state probability matrices =====
         # Eta: filtered conditional probability of being in each regime per observation
-        self.Eta = np.zeros((self.NumObservations, self.NumRegimes))
+        self.Eta: np.ndarray = np.zeros((self.NumObservations, self.NumRegimes))
         
         # Xi_filtered: filtered state probabilities (one-step ahead)
-        self.Xi_filtered = np.zeros((self.NumObservations, self.NumRegimes))
+        self.Xi_filtered: np.ndarray = np.zeros((self.NumObservations, self.NumRegimes))
         
-        self.Xi_t1_filtered = np.zeros((self.NumObservations, self.NumRegimes))
+        self.Xi_t1_filtered: np.ndarray = np.zeros((self.NumObservations, self.NumRegimes))
         
 
         # Xi_smoothed: smoothed state probabilities (full-sample inference)
-        self.Xi_smoothed = np.zeros((self.NumObservations, self.NumRegimes))
+        self.Xi_smoothed: np.ndarray = np.zeros((self.NumObservations, self.NumRegimes))
 
         # ===== Initialize unconditional state probabilities =====
         if unconditional_state_probs is None:
@@ -232,6 +236,9 @@ class MarkovSwitchingModel:
             # Validate dates_label is a list/array of dates
             if not isinstance(dates_label, (list, pd.DatetimeIndex)):
                 raise ValueError("dates_label must be a list[Date or DateTime] or DatetimeIndex.")
+            
+            if any(isinstance(x, int) for x in dates_label):
+                dates_label = pd.to_datetime(dates_label, unit="D", origin="1900-01-01")
             
             if not all(isinstance(x, (date, datetime)) for x in dates_label):
                 raise ValueError("dates_label must be a list[Date or DateTime] or DatetimeIndex.")
@@ -460,4 +467,4 @@ class MarkovSwitchingModel:
         # likelihood = np.sum(residual, axis=1)
         
         loglikelihood = sum(np.log(likelihood))
-        return loglikelihood.item()
+        return float(loglikelihood)
