@@ -59,7 +59,7 @@ import json
 from sklearn.preprocessing import StandardScaler
 
 
-def LoadConfiguration(file_path: str) -> dict:
+def LoadConfiguration(file_path: str | None) -> dict:
     """
     Load a JSON configuration file.
 

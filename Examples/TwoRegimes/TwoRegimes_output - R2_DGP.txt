@@ -4,9 +4,9 @@ R2_DGP
 MarkovSwitching(2 regimes) Modelling y
 
 Summary of Results
-Date of estimation:   2026-01-14 11:47:42
+Date of estimation:   2026-01-14 14:58:52
 No. of observations:  1000
-Date range:           1900-01-01 00:00:00 to 1902-09-27 00:00:00
+Date range:           0 to 999
 log-likelihood:       -2449.5899
 ========================================================================================
 y ~ Intercept + x
@@ -17,13 +17,13 @@ Intercept(S = 1)        99.9686901   0.0788342 1268.0881   0.0000 ***
 x(S = 0)                 0.9242251   0.0530603   17.4184   0.0000 ***
 x(S = 1)                 1.9982111   0.0813412   24.5658   0.0000 ***
 
-                 Coefficient      Std.Error
-sigma(S = 0)       1.0605430 Not.Imp.
-sigma(S = 1)       1.9492815 Not.Imp.
-p_{0|0}            0.2051898 Not.Imp.
-p_{0|1}            0.4991901 Not.Imp.
-p_{1|0}            0.7948102 Not.Imp.
-p_{1|1}            0.5008099 Not.Imp.
+                 Coefficient
+sigma(S = 0)       1.0605430 
+sigma(S = 1)       1.9492815 
+p_{0|0}            0.2051898 
+p_{0|1}            0.4991901 
+p_{1|0}            0.7948102 
+p_{1|1}            0.5008099 
 
 
 pi(S = 0)          0.3850000 
