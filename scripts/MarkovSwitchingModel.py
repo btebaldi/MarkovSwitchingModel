@@ -14,13 +14,6 @@ class TypeOfVariable(Enum):
     DEPENDENT = 0
     INDEPENDENT = 1
 
-class TypeOfTransformation(Enum):
-    NONE = 0
-    LEVEL = 1
-    LOG_DIFF = 2
-    STANDARIZE = 3
-
-
 def GetEmptyParamNames() -> dict:
     """
     Returns an empty dictionary structure for parameter names.
@@ -31,7 +24,6 @@ def GetEmptyParamNames() -> dict:
 def GetDictRepresentation(name: str, 
                           type: TypeOfVariable,
                           classX: TypeOfDependentVariable | None = None,
-                          transformation: TypeOfTransformation = TypeOfTransformation.NONE,
                           ar: int | None = None):
     if type is None:
         raise ValueError("TypeOfVariable must be provided.")
@@ -48,14 +40,10 @@ def GetDictRepresentation(name: str,
     if classX != TypeOfDependentVariable.AUTO_REGRESSIVE:
         ar = None
 
-    if transformation is None:
-        transformation = TypeOfTransformation.NONE
-
     myDict =  {
         "Name" : name,
         "Type": type,
         "ClassOfRegressor": classX,
-        "Transformation": transformation,
         "AR": ar
     }
 
@@ -69,7 +57,7 @@ class MarkovSwitchingModel:
     """
 
     def __init__(self, Y: np.ndarray, X: np.ndarray, num_regimes:int,
-                 beta: np.ndarray|None =None,
+                 beta: np.ndarray|None = None,
                  omega: np.ndarray|None = None,
                  transitionMatrix: np.ndarray|None = None,
                  unconditional_state_probs: np.ndarray|None = None,
@@ -237,9 +225,6 @@ class MarkovSwitchingModel:
             if not isinstance(dates_label, (list, pd.DatetimeIndex)):
                 raise ValueError("dates_label must be a list[Date or DateTime] or DatetimeIndex.")
             
-            if any(isinstance(x, int) for x in dates_label):
-                dates_label = pd.to_datetime(dates_label, unit="D", origin="1900-01-01")
-            
             if not all(isinstance(x, (date, datetime)) for x in dates_label):
                 raise ValueError("dates_label must be a list[Date or DateTime] or DatetimeIndex.")
             
@@ -330,7 +315,7 @@ class MarkovSwitchingModel:
         output += "=" * 88 + "\n"
 
         x_names = [v['Name'] for v in self.ParamNames['X'].values()]
-        output += f"{'DL.' if self.ParamNames['Y'][0]['Transformation'] == TypeOfTransformation.LOG_DIFF else ''}{self.ParamNames['Y'][0]['Name']} ~ {' + '.join(x_names)}\n"
+        output += f"{self.ParamNames['Y'][0]['Name']} ~ {' + '.join(x_names)}\n"
         output += "\n"
         output += f"{'':22s}{'Coefficient':>12s} {'Std.Error':>11s} {'t-value':>9s} {'t-prob':>8s}\n"
 
@@ -362,14 +347,14 @@ class MarkovSwitchingModel:
                 )
    
         output += "\n"
-        output += f"{'':16s}{'Coefficient':>12s} {'Std.Error':>14s}\n"
+        output += f"{'':16s}{'Coefficient':>12s}\n"
 
         # ===== Sigma =====
         for r in range(self.NumRegimes):
             output += (
                 f"{f'sigma(S = {r})':<16s}"
                 f"{self.Omega[0, r]**0.5:12.7f} "
-                f"{"Not.Imp."}\n"
+                f"\n"
             )
 
         # ===== Transition probs =====
@@ -377,7 +362,7 @@ class MarkovSwitchingModel:
             for i in range(self.NumRegimes):
                 output += (f"{f'p_{{{j}|{i}}}':<16s}"
                         f"{self.TransitionMatrix[i, j]:12.7f} "
-                        f"{"Not.Imp."}\n"
+                        f"\n"
                 )
 
 

@@ -1,21 +1,25 @@
 import MarkovSwitchingModel as MKM
 import matplotlib.pyplot as plt
 import pandas as pd
+import pathlib as plib
 
-def GenerateSmoothProbabilitiesPlot(model: MKM.MarkovSwitchingModel, fileStem: str) -> None:
+def GenerateSmoothProbabilitiesPlot(model: MKM.MarkovSwitchingModel, filePath: plib.Path | None = None) -> None:
     """
-    Visualizes the smoothed regime probabilities for each regime over time.
-    
-    This function creates a multi-panel plot where each subplot displays the smoothed
-    probability of being in a specific regime across all time periods. The plot is saved
-    as a PNG file for later analysis.
-    
-    Parameters:
-        model (MKM.MarkovSwitchingModel): The fitted Markov Switching Model containing
-                                          smoothed probabilities (Xi_smoothed) and dates.
-    
-    Returns:
-        None: Saves the plot to 'markov_switching_plot.png' without returning a value.
+    Generate and save a multi-panel plot of smoothed regime probabilities.
+
+    Creates one subplot per regime showing the smoothed probability
+    (``model.Xi_smoothed[:, regime]``) over time (``model.DatesLabel``), and saves the
+    figure as a PNG file named ``"{fileStem} markov_switching_plot.png"``.
+
+    Parameters
+    ----------
+    model : MKM.MarkovSwitchingModel
+    fileStem : str
+        Output file prefix/path used when saving the PNG.
+
+    Returns
+    -------
+    None
     """
     # Create a figure with subplots, one for each regime
     # figsize=(10, 6) sets the figure dimensions to 10 inches wide by 6 inches tall
@@ -43,7 +47,9 @@ def GenerateSmoothProbabilitiesPlot(model: MKM.MarkovSwitchingModel, fileStem: s
 
     # Save the figure to a PNG file with high resolution (300 DPI)
     # bbox_inches='tight' ensures no content is cut off at the figure edges
-    plt.savefig(f"{fileStem} markov_switching_plot.png", dpi=300, bbox_inches='tight')
+    if filePath is None:
+        filePath =plib.Path(f"{model.ModelName} - markov_switching_plot.png")
+    plt.savefig(filePath, dpi=300, bbox_inches='tight')
 
 def GetRegimeClassification (model: MKM.MarkovSwitchingModel) -> pd.DataFrame:
     """

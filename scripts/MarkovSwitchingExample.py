@@ -1,4 +1,5 @@
 # Load necessary libraries
+from datetime import date, datetime
 import numpy as np
 import pandas as pd
 import MarkovSwitchingModel as MKM
@@ -117,10 +118,8 @@ def LoadModel(filePath,
     # otherwise, compute log-returns
     if level:
         df['Y'] = df[variable]
-        ytrasnsformation = MKM.TypeOfTransformation.LEVEL
     else:
         df['Y'] = np.log(df[variable] / df[variable].shift(1))
-        ytrasnsformation = MKM.TypeOfTransformation.LOG_DIFF
         
         #  Remove the first row which contains NaN due to the log-return calculation
         df = df.iloc[1:, :]
@@ -141,7 +140,7 @@ def LoadModel(filePath,
    
     # ===== Extract Y and X from the database =====
     Y = df['Y'].to_numpy().reshape((-1, 1))
-    param_names['Y'][0] = MKM.GetDictRepresentation(name = variable, type = MKM.TypeOfVariable.DEPENDENT, classX = None, transformation = ytrasnsformation, ar = None)
+    param_names['Y'][0] = MKM.GetDictRepresentation(name = variable, type = MKM.TypeOfVariable.DEPENDENT, classX = None, ar = None)
 
     # Create a trend variable (linear time index from 0 to T-1)
     # Note: This variable is currently unused in the model specification below
@@ -160,7 +159,7 @@ def LoadModel(filePath,
         param_names['X'][nColumn_X] = MKM.GetDictRepresentation(name = 'Intercept',
                                                         type = MKM.TypeOfVariable.INDEPENDENT,
                                                         classX = MKM.TypeOfDependentVariable.INTERCEPT,
-                                                        transformation = MKM.TypeOfTransformation.NONE, ar = None)
+                                                        ar = None)
         nColumn_X = nColumn_X + 1
 
     if trend :
@@ -168,7 +167,7 @@ def LoadModel(filePath,
         param_names['X'][nColumn_X] = MKM.GetDictRepresentation(name = 'Trend',
                                                         type = MKM.TypeOfVariable.INDEPENDENT,
                                                         classX = MKM.TypeOfDependentVariable.TREND,
-                                                        transformation = MKM.TypeOfTransformation.NONE, ar = None)
+                                                        ar = None)
         nColumn_X = nColumn_X + 1
 
 
@@ -178,7 +177,7 @@ def LoadModel(filePath,
             param_names['X'][nColumn_X] = MKM.GetDictRepresentation(name = Xvar,
                                                             type = MKM.TypeOfVariable.INDEPENDENT,
                                                             classX = MKM.TypeOfDependentVariable.EXOGENOUS,
-                                                            transformation = MKM.TypeOfTransformation.NONE, ar = None)
+                                                            ar = None)
             nColumn_X = nColumn_X + 1
 
     # Build the independent variable matrix X by horizontally stacking the intercept and lagged dependent variable
@@ -189,12 +188,18 @@ def LoadModel(filePath,
         param_names['X'][nColumn_X] = MKM.GetDictRepresentation(name = f"Lag_{lag}",
                                                             type = MKM.TypeOfVariable.INDEPENDENT,
                                                             classX = MKM.TypeOfDependentVariable.AUTO_REGRESSIVE,
-                                                            transformation = MKM.TypeOfTransformation.NONE, ar = lag)
+                                                            ar = lag)
         nColumn_X = nColumn_X + 1
     
+    # ===== Generate initial parameter guesses =====
     if initial_guess is None:
-        # ===== Generate initial parameter guesses =====
         initial_guess = ParameterGuess()
+
+    # ===== Create the dates label =====
+    if not all(isinstance(x, (date, datetime)) for x in list(df.index)):
+        dates_label = None
+    else:
+        dates_label = list(df.index)
     
     model = MKM.MarkovSwitchingModel(Y, X, num_regimes=regimes,
                                     beta = initial_guess.Beta, 
@@ -202,7 +207,7 @@ def LoadModel(filePath,
                                      transitionMatrix = initial_guess.TransitionMatrix,
                                      unconditional_state_probs = initial_guess.UnconditionalStateProbability,
                                      param_names = param_names,
-                                     dates_label = list(df.index),
+                                     dates_label = dates_label,
                                      model_name = filePath.stem)
 
     return model
