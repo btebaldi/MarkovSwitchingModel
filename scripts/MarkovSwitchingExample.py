@@ -213,7 +213,7 @@ def LoadModel(filePath,
     return model
 
 
-def TwoRegimeExample():
+def TwoRegimesExample():
 
     ParameterGuess_instance = ParameterGuess()
     ParameterGuess_instance.Beta = np.array([[1, 20],
@@ -264,10 +264,62 @@ def TwoRegimeExample():
     MKH.GenerateSmoothProbabilitiesPlot(ModelEstimator.Model, filePath=dirPath / f"{fileStem} markov_switching_plot.png")
 
 
+
+def ThreeRegimesExample():
+
+    ParameterGuess_instance = ParameterGuess()
+    ParameterGuess_instance.Beta = np.array([[1, 20, 0],
+                                             [10,  1, 0]])
+    ParameterGuess_instance.Omega = np.array([[3**2, 10**2, 1**2]])
+
+    path = ".\\Examples\\ThreeRegimes\\R3_DGP.csv"
+
+    model = LoadModel(filePath = path,
+                    variable = "Y", # specify the dependent variable
+                    Xvariable = None,        # specify exogenous variables
+                    regimes = 3,               # specify the number of regimes
+                    level = True,              # specify if the dependent variable is at level (true) or log-returns (false)
+                    trend = False,              # specify if trend variable is to be included
+                    intercept = True,          # specify if intercept is to be included
+                    ar = 1,                    # specify the autoregressive order
+                    decimal=',', delimiter=';',
+                    parse_dates=None,
+                    date_format=None,
+                    index_col=None,
+                    data_ini=None,
+                    data_fim=None,
+                    initial_guess=ParameterGuess_instance)
+    
+    # Create an estimator instance
+    ModelEstimator = MKE.MarkovSwitchingEstimator(model)
+        
+
+
+    # Fit the model
+    ModelEstimator.Fit(traceLevel=1)
+
+    # Define file stem pattern and dir for saving results
+    fileStem = f"ThreeRegimes_output - {ModelEstimator.Model.ModelName}"
+    dirPath = plib.Path(".\\Examples\\ThreeRegimes")
+
+    # Save model summary to a text file
+    print(ModelEstimator.Model)
+    with open(dirPath / f"{fileStem}.txt", 'w', encoding='utf-8') as fileStream:
+        print(ModelEstimator.Model, file=fileStream)
+
+    # Save the model matrices to CSV files
+    pd.DataFrame(ModelEstimator.Model.Y).to_csv(dirPath / f"{fileStem}_Y.csv", index=False, header=False)
+    pd.DataFrame(ModelEstimator.Model.X).to_csv(dirPath / f"{fileStem}_X.csv", index=False, header=False)
+    pd.DataFrame(ModelEstimator.Model.Xi_smoothed).to_csv(dirPath / f"{fileStem}_Xi_smoothed.csv", index=False, header=False)
+
+    # Generate and save smoothed probabilities plot
+    MKH.GenerateSmoothProbabilitiesPlot(ModelEstimator.Model, filePath=dirPath / f"{fileStem} markov_switching_plot.png")    
+
+
 if __name__ == "__main__" :
     
 
-    TwoRegimeExample()
-
+    TwoRegimesExample()
+    ThreeRegimesExample()
      
     print("Finished Estimation")

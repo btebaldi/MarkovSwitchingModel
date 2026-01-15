@@ -277,47 +277,112 @@ Using this helper is strongly recommended, as it ensures that:
 
 ## Basic Example
 
-A basic usage example is provided in the file **`MarkovSwitchingExample.py`**.
-This script demonstrates the full estimation workflow for two specifications:
+Two examples are provided in the file **`MarkovSwitchingExample.py`**. The first example is a "Two-regime Markov Switching model", the seccond example is a "Three-regime Markov Switching model". Both model specifications are provided below. This script demonstrates the full estimation workflow for the two examples.
 
-* **Two-regime Markov Switching model**
+### **Two-regime Markov Switching model**
 
-  The data-generating process (DGP) follows a Markov Switching regression with **two regimes**, each characterized by distinct parameters and governed by a first-order Markov chain.
+The data-generating process (DGP) follows a Markov Switching regression with **two regimes**, each characterized by distinct parameters and governed by a first-order Markov chain.
 
-  **Transition probabilities**
+**Data-Generating Process**
 
-  The regime dynamics are defined by the following transition probabilities:
-  $$\begin{aligned}
-  P(S_t = 0 \mid S_{t-1} = 0) &= 0.5, \\
-  P(S_t = 1 \mid S_{t-1} = 0) &= 0.5, \\
-  P(S_t = 0 \mid S_{t-1} = 1) &= 0.8, \\
-  P(S_t = 1 \mid S_{t-1} = 1) &= 0.2.
-  \end{aligned}$$
+The data are generated according to a regime-dependent model of the form:
+$$
+y_{t} = \mu(S_t) + \beta_{x}(S_t) \cdot x + \sigma(S_t)\varepsilon
+$$
+where:
+
+* $x_t$ is an exogenous explanatory variable,
+* $\varepsilon_t \sim \mathcal{N}(0,1)$ is an i.i.d. standard normal innovation,
+* $S_t$ denotes the latent regime at time $t$, evolving according to a Markov process,
+* $\mu(S_t)$, $\beta_{x}(S_t)$, and $\sigma(S_t)$ are **regime-specific parameters**, allowing the conditional mean, slope coefficient, and volatility to vary across states.
+
+This specification captures structural changes in both the level and the dynamics of the process by allowing the model parameters to switch according to the underlying regime $S_t$.
+
+
+**Transition probabilities**
+
+The regime dynamics are defined by the following transition probabilities:
+$$\begin{aligned}
+P(S_t = 0 \mid S_{t-1} = 0) &= 0.5, \\
+P(S_t = 1 \mid S_{t-1} = 0) &= 0.5, \\
+P(S_t = 0 \mid S_{t-1} = 1) &= 0.8, \\
+P(S_t = 1 \mid S_{t-1} = 1) &= 0.2.
+\end{aligned}$$
   
-  These probabilities imply that regime 1 is relatively persistent in transitioning back to regime 0, while regime 0 exhibits equal likelihood of remaining or switching.
+**Regime-specific parameters**
 
-  **Regime-specific parameters**
-
-  * **Regime 1**
-
-    * Mean ($\mu$): 0
-    * Slope coefficient ($\beta_x$): 1
-    * Variance ($\omega$): 1
-
-  * **Regime 0**
+* **Regime 0**
 
     * Mean ($\mu$): 100
     * Slope coefficient ($\beta_x$): 2
-    * Variance ($\omega$): 4
+    * Variance ($\sigma^2 = \Omega$): 4
 
-  Together, these specifications generate a process with sharply contrasting regimes in both level and volatility, providing a clear illustration of how Markov Switching models capture structural changes in the data.
+* **Regime 1**
+
+    * Mean ($\mu$): 0
+    * Slope coefficient ($\beta_x$): 1
+    * Variance ($\sigma^2 = \Omega$): 1
+
+Together, these specifications generate a process with sharply contrasting regimes in both level and volatility, providing a clear illustration of how Markov Switching models capture structural changes in the data.
 
 
+### **Three-regime Markov Switching model**
 
-* A **three-regime** Markov Switching model
+The data-generating process (DGP) follows a Markov Switching regression with **three regimes**, each characterized by distinct parameters and governed by a first-order Markov chain.
 
-The example illustrates how to configure the model, run the estimation procedure, and analyze the resulting regime probabilities and parameter estimates.
+**Data-Generating Process**
 
+The data are generated according to a regime-dependent AR(1) model of the form:
+$$
+Y_{t} = \mu(S_t) + \beta_{lag}(S_t) \cdot Y_{t-1} + \sigma(S_t)\varepsilon
+$$
+where:
+
+* $\varepsilon_t \sim \mathcal{N}(0,1)$ is an i.i.d. standard normal innovation,
+* $S_t$ denotes the latent regime at time $t$, evolving according to a Markov process,
+* $\mu(S_t)$, $\beta_{lag}(S_t)$, and $\sigma(S_t)$ are **regime-specific parameters**, allowing the conditional mean, slope coefficient, and volatility to vary across states.
+
+This specification captures structural changes in both the level and the dynamics of the process by allowing the model parameters to switch according to the underlying regime $S_t$.
+
+**Transition probabilities**
+
+The regime dynamics are defined by the following transition probabilities:
+$$\begin{aligned}
+P(S_t = 0 \mid S_{t-1} = 0) &= 0.40 \\
+P(S_t = 1 \mid S_{t-1} = 0) &= 0.50 \\
+P(S_t = 2 \mid S_{t-1} = 0) &= 0.10 \\
+
+P(S_t = 0 \mid S_{t-1} = 1) &= 0.01 \\
+P(S_t = 1 \mid S_{t-1} = 1) &= 0.18 \\
+P(S_t = 2 \mid S_{t-1} = 1) &= 0.81 \\
+
+P(S_t = 0 \mid S_{t-1} = 2) &= 0.09 \\
+P(S_t = 1 \mid S_{t-1} = 2) &= 0.82 \\
+P(S_t = 2 \mid S_{t-1} = 2) &= 0.09
+\end{aligned}
+$$
+
+**Regime-specific parameters**
+
+* **Regime 0**
+
+    * Mean ($\mu$): -10
+    * Slope coefficient ($\beta_{lag}$): 0.5
+    * Variance ($\sigma^2 = \Omega$): 1
+
+* **Regime 1**
+
+    * Mean ($\mu$): 0
+    * Slope coefficient ($\beta_{lag}$): 0.2
+    * Variance ($\sigma^2 = \Omega$): 4
+
+* **Regime 2**
+
+    * Mean ($\mu$): 10
+    * Slope coefficient ($\beta_{lag}$): -0.3
+    * Variance ($\sigma^2 = \Omega$): 9
+
+Together, these specifications generate a process with sharply contrasting regimes in both level and volatility, providing a clear illustration of how Markov Switching models capture structural changes in the data.
 ## License
 
 Please refer to the **LICENSE** file for detailed licensing information.
