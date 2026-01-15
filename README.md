@@ -286,9 +286,11 @@ The data-generating process (DGP) follows a Markov Switching regression with **t
 **Data-Generating Process**
 
 The data are generated according to a regime-dependent model of the form:
+
 $$
 y_{t} = \mu(S_t) + \beta_{x}(S_t) \cdot x + \sigma(S_t)\varepsilon
 $$
+
 where:
 
 * $x_t$ is an exogenous explanatory variable,
@@ -302,12 +304,15 @@ This specification captures structural changes in both the level and the dynamic
 **Transition probabilities**
 
 The regime dynamics are defined by the following transition probabilities:
-$$\begin{aligned}
+
+$$
+\begin{aligned}
 P(S_t = 0 \mid S_{t-1} = 0) &= 0.5, \\
 P(S_t = 1 \mid S_{t-1} = 0) &= 0.5, \\
 P(S_t = 0 \mid S_{t-1} = 1) &= 0.8, \\
 P(S_t = 1 \mid S_{t-1} = 1) &= 0.2.
-\end{aligned}$$
+\end{aligned}
+$$
   
 **Regime-specific parameters**
 
@@ -333,9 +338,11 @@ The data-generating process (DGP) follows a Markov Switching regression with **t
 **Data-Generating Process**
 
 The data are generated according to a regime-dependent AR(1) model of the form:
+
 $$
 Y_{t} = \mu(S_t) + \beta_{lag}(S_t) \cdot Y_{t-1} + \sigma(S_t)\varepsilon
 $$
+
 where:
 
 * $\varepsilon_t \sim \mathcal{N}(0,1)$ is an i.i.d. standard normal innovation,
@@ -347,7 +354,9 @@ This specification captures structural changes in both the level and the dynamic
 **Transition probabilities**
 
 The regime dynamics are defined by the following transition probabilities:
-$$\begin{aligned}
+
+$$
+\begin{aligned}
 P(S_t = 0 \mid S_{t-1} = 0) &= 0.40 \\
 P(S_t = 1 \mid S_{t-1} = 0) &= 0.50 \\
 P(S_t = 2 \mid S_{t-1} = 0) &= 0.10 \\
