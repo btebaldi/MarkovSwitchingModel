@@ -162,9 +162,9 @@ def GetRegimeNames(model: MKM.MarkovSwitchingModel) -> list:
     regime_names = list()
     for regime in range(model.NumRegimes):
         if InferenceInfo[indexOfRegressor, 3, regime] < 0.1:
-            if InferenceInfo[indexOfRegressor, 0, regime] <0:
+            if InferenceInfo[indexOfRegressor, 0, regime] < 0:
                 regime_names.append(f"Regime de Baixa")
-            elif InferenceInfo[indexOfRegressor, 0, regime] >0:
+            elif InferenceInfo[indexOfRegressor, 0, regime] >= 0:
                 regime_names.append(f"Regime de Alta")
         else:
             regime_names.append(f"Regime Neutro")
