@@ -150,11 +150,14 @@ def GetRegimeNames(model: MKM.MarkovSwitchingModel) -> list:
         raise ValueError("Models with more than 3 regimes are not supported for naming.")
 
     # determine the index of the intercept
-    indexOfRegressor = 0
+    indexOfRegressor = 999
     for key, value in model.ParamNames['X'].items():
         if value["ClassOfRegressor"] == MKM.TypeOfDependentVariable.INTERCEPT:
             indexOfRegressor = key
             break
+    
+    if indexOfRegressor == 999:
+        raise ValueError("No intercept regressor found in the model.")
 
     # get the inference info
     InferenceInfo = model.GetBetaInferenceMatrix()
